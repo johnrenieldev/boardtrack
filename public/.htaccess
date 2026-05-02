@@ -1,0 +1,42 @@
+# BoardTrack — Apache Rewrite Rules
+# public/.htaccess
+# CRITICAL: RewriteBase must match your XAMPP subfolder path.
+
+Options -Indexes
+Options -MultiViews
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # ── CRITICAL FIX: RewriteBase ──────────────────────────────
+    # Without this, Apache cannot resolve %{REQUEST_FILENAME}
+    # to the physical path, so real files (CSS/JS/images) get
+    # passed through to index.php instead of being served directly.
+    #
+    # Change this if your project is NOT in /boardtrack/public/
+    RewriteBase /boardtrack/public/
+
+    # Allow real files and real directories to pass through untouched
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # Route everything else to index.php
+    RewriteRule ^(.*)$ index.php?url=$1 [QSA,L]
+</IfModule>
+
+# Block directory listings
+<IfModule mod_autoindex.c>
+    Options -Indexes
+</IfModule>
+
+# Security headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+</IfModule>
+
+# Block access to hidden files (.env, .git, etc.)
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
