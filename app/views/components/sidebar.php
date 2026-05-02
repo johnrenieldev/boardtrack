@@ -91,10 +91,6 @@ $currentUrl  = $_GET['url'] ?? '';
          class="nav-item <?= str_starts_with($currentUrl, 'tenant/complaint') ? 'active' : '' ?>">
         <i class="fa-solid fa-triangle-exclamation"></i><span>Complaints</span>
       </a>
-      <a href="<?= Router::url('tenant/announcements') ?>"
-         class="nav-item <?= str_starts_with($currentUrl, 'tenant/announcement') ? 'active' : '' ?>">
-        <i class="fa-solid fa-bullhorn"></i><span>Announcements</span>
-      </a>
       <a href="<?= Router::url('tenant/notifications') ?>"
          class="nav-item <?= str_starts_with($currentUrl, 'tenant/notification') ? 'active' : '' ?>">
         <i class="fa-solid fa-bell"></i><span>Notifications</span>

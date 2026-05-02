@@ -68,14 +68,13 @@ class TenantController extends Controller
 
         // Get recent data
         $recentBills = array_slice($this->billModel->getByTenantId($tenant['id']), 0, 5);
-        $recentAnnouncements = $this->announcementModel->getRecent(3);
+        $recentAnnouncements = $this->notificationModel->getAnnouncements($user['id'], 3);
         $notifications = $this->notificationModel->getForUser($user['id'], false, 5);
 
         // Get roommates if assigned to shared room
         $roommates = [];
         if ($tenant['room_id'] && ($tenant['room_type'] ?? null) === 'shared') {
             $roommates = $this->tenantModel->getByRoomId($tenant['room_id']);
-            // Remove current tenant from list
             $roommates = array_filter($roommates, fn($r) => $r['user_id'] != $user['id']);
         }
 
@@ -150,22 +149,19 @@ class TenantController extends Controller
             $this->redirect('tenant/bills');
         }
 
-        // Check for duplicate pending payment
         $existing = $this->paymentModel->findBy('bill_id', $billId);
         if ($existing && $existing['status'] === 'pending') {
             $this->flash('error', 'A payment for this bill is already pending verification.');
             $this->redirect('tenant/bills');
         }
 
-        // Handle file upload
         if (!isset($_FILES['payment_proof']) || $_FILES['payment_proof']['error'] !== UPLOAD_ERR_OK) {
             $this->flash('error', 'Please upload payment proof.');
             $this->redirect('tenant/pay-bill/' . $billId);
         }
 
         $file = $_FILES['payment_proof'];
-        
-        // Validate file
+
         $allowedTypes = ['image/jpeg', 'image/png'];
         if (!in_array($file['type'], $allowedTypes)) {
             $this->flash('error', 'Only JPG and PNG files are allowed.');
@@ -177,18 +173,15 @@ class TenantController extends Controller
             $this->redirect('tenant/pay-bill/' . $billId);
         }
 
-        // Generate unique filename
         $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
         $filename = bin2hex(random_bytes(16)) . '.' . $extension;
         $filepath = UPLOAD_PAYMENTS . '/' . $filename;
 
-        // Move file
         if (!move_uploaded_file($file['tmp_name'], $filepath)) {
             $this->flash('error', 'Failed to upload file.');
             $this->redirect('tenant/pay-bill/' . $billId);
         }
 
-        // Create payment record
         $paymentData = [
             'amount_paid' => $bill['amount'],
             'payment_method' => $_POST['payment_method'] ?? 'other',
@@ -198,8 +191,6 @@ class TenantController extends Controller
         ];
 
         $this->paymentModel->submitPayment($billId, $tenant['id'], $paymentData);
-
-        // Update bill status
         $this->billModel->updateStatus($billId, 'pending_verification');
 
         $this->flash('success', 'Payment submitted successfully. Awaiting verification.');
@@ -239,7 +230,7 @@ class TenantController extends Controller
         }
 
         $tenant = $this->tenantModel->findByUserId((int) $_SESSION['user_id']);
-        
+
         $data = [
             'category' => $_POST['category'] ?? 'other',
             'title' => trim($_POST['title'] ?? ''),
@@ -253,7 +244,6 @@ class TenantController extends Controller
         }
 
         $this->complaintModel->submit($tenant['id'], $data);
-
         $this->flash('success', 'Complaint submitted successfully.');
         $this->redirect('tenant/complaints');
     }
@@ -344,15 +334,10 @@ class TenantController extends Controller
     // ANNOUNCEMENTS
     // ─────────────────────────────────────────────
 
-    /** GET /?url=tenant/announcements */
+    /** GET /?url=tenant/announcements — redirected to notifications */
     public function announcements(): void
     {
-        $announcements = $this->announcementModel->getActive();
-
-        $this->view('tenant/announcements', [
-            'pageTitle' => 'Announcements — BoardTrack',
-            'announcements' => $announcements,
-        ], 'tenant');
+        $this->redirect('tenant/notifications');
     }
 
     // ─────────────────────────────────────────────
@@ -363,8 +348,7 @@ class TenantController extends Controller
     public function personality(): void
     {
         $tenant = $this->tenantModel->findByUserId((int) $_SESSION['user_id']);
-        
-        // Check if already completed
+
         if ($tenant['personality_completed']) {
             $this->flash('info', 'You have already completed the personality questionnaire.');
             $this->redirect('tenant/dashboard');
@@ -393,15 +377,12 @@ class TenantController extends Controller
             $this->redirect('tenant/personality');
         }
 
-        // Save answers
         foreach ($answers as $questionId => $answerValue) {
             $this->personalityModel->saveAnswer($tenant['id'], (int) $questionId, (int) $answerValue);
         }
 
-        // Mark as completed
         $this->tenantModel->markPersonalityCompleted($tenant['id']);
 
-        // Check for suspicious pattern
         if ($this->personalityModel->checkSuspiciousPattern($tenant['id'])) {
             $this->tenantModel->flagPersonality($tenant['id'], 'Suspicious pattern: majority of answers are identical');
         }
@@ -479,17 +460,15 @@ class TenantController extends Controller
         $userId = (int) $_SESSION['user_id'];
         $tenant = $this->tenantModel->findByUserId($userId);
 
-        // Update user info
         $userData = [
             'name' => trim($_POST['name'] ?? ''),
             'email' => trim($_POST['email'] ?? '')
         ];
-        
-        // Handle password change if provided
+
         if (!empty($_POST['new_password'])) {
             $userData['password_hash'] = password_hash($_POST['new_password'], PASSWORD_BCRYPT);
         }
-        
+
         if (empty($userData['name']) || empty($userData['email'])) {
             $this->flash('error', 'Name and Custom Email are required fields.');
             $this->redirect('tenant/profile');
@@ -497,13 +476,11 @@ class TenantController extends Controller
 
         $this->userModel->update($userData, ['id' => $userId]);
 
-        // Update tenant info
         $tenantData = [
             'room_type_preference' => $_POST['room_type_preference'] ?? $_POST['room_preference'] ?? 'shared',
         ];
         $this->tenantModel->update($tenantData, ['id' => $tenant['id']]);
 
-        // Update session name for topbar
         $_SESSION['user_name'] = $userData['name'];
 
         $this->flash('success', 'Profile updated successfully.');

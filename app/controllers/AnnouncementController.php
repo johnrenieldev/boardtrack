@@ -1,6 +1,6 @@
 ﻿<?php
 /**
- * BoardTrack — AnnouncementController (Phase 1 Fixed)
+ * BoardTrack — AnnouncementController
  * Handles announcements for both roles.
  */
 class AnnouncementController extends Controller
@@ -20,14 +20,14 @@ class AnnouncementController extends Controller
     public function index(): void
     {
         $role = $_SESSION['user_role'] ?? 'tenant';
-        $this->redirect($role === 'landlord' ? 'landlord/announcements' : 'tenant/announcements');
+        $this->redirect($role === 'landlord' ? 'landlord/announcements' : 'tenant/notifications');
     }
 
     // ── LANDLORD: List announcements ────────────────────────────
     public function announcements(): void
     {
         if ($_SESSION['user_role'] !== 'landlord') {
-            $this->redirect('tenant/announcements');
+            $this->redirect('tenant/notifications');
         }
         $announcements = $this->announcementModel->getAllWithAuthor();
         $this->view('landlord/announcements', [
@@ -58,12 +58,12 @@ class AnnouncementController extends Controller
             $this->redirect('landlord/announcements');
         }
         $this->announcementModel->insert($data);
-        // Notify active tenants
+        // Notify active tenants with full announcement content
         $activeTenants = $this->tenantModel->getActiveTenants();
         foreach ($activeTenants as $tenant) {
             $this->notificationModel->createNotification(
                 $tenant['user_id'], 'announcement', $data['title'],
-                "New announcement: {$data['title']}", 'tenant/announcements'
+                $data['content'], 'tenant/notifications'
             );
         }
         $this->flash('success', 'Announcement created and tenants notified.');
@@ -81,15 +81,10 @@ class AnnouncementController extends Controller
         $this->redirect('landlord/announcements');
     }
 
-    // ── TENANT: List announcements ─────────────────────────────
+    // ── TENANT: Announcements — redirected to notifications ────
     public function tenantAnnouncements(): void
     {
-        $announcements = $this->announcementModel->getActive();
-        $this->view('tenant/announcements', [
-            'pageTitle'     => 'Announcements — BoardTrack',
-            'announcements' => $announcements,
-        ], 'tenant');
+        $this->redirect('tenant/notifications');
     }
 }
 ?>
-

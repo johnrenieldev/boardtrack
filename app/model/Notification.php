@@ -49,4 +49,13 @@ class Notification extends Model
         $stmt = $this->db->prepare("UPDATE {$this->table} SET is_read = 1 WHERE user_id = :uid");
         $stmt->execute([':uid' => $userId]);
     }
+
+    public function getAnnouncements(int $userId, int $limit = 5): array
+    {
+        $limit = (int)$limit;
+        $sql   = "SELECT * FROM {$this->table} WHERE user_id = :uid AND type = 'announcement' ORDER BY created_at DESC LIMIT {$limit}";
+        $stmt  = $this->db->prepare($sql);
+        $stmt->execute([':uid' => $userId]);
+        return $stmt->fetchAll();
+    }
 }
