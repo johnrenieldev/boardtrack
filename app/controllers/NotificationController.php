@@ -1,6 +1,6 @@
 ﻿<?php
 /**
- * BoardTrack — NotificationController (Phase 1 Fixed)
+ * BoardTrack — NotificationController
  */
 class NotificationController extends Controller
 {
@@ -17,41 +17,47 @@ class NotificationController extends Controller
     public function index(): void
     {
         $role = $_SESSION['user_role'] ?? 'tenant';
-        $this->redirect($role === 'landlord' ? 'landlord/dashboard' : 'tenant/notifications');
+        $this->redirect($role === 'landlord' ? 'landlord/notifications' : 'tenant/notifications');
     }
 
-    // ── TENANT/LANDLORD: List notifications ───────────────────
     public function notifications(): void
     {
-        $user = $this->userModel->find((int)$_SESSION['user_id']);
-        $notifications = $this->notificationModel->getForUser($user['id']);
-        $unreadCount = $this->notificationModel->getUnreadCount($user['id']);
-        $this->view('tenant/notifications', [
-            'pageTitle'        => 'Notifications — BoardTrack',
-            'notifications'    => $notifications,
-            'unreadCount'      => $unreadCount,
-        ], 'tenant');
+        $role = $_SESSION['user_role'] ?? 'tenant';
+        if ($role === 'landlord') {
+            $this->redirect('landlord/notifications');
+            return;
+        }
+        $this->redirect('tenant/notifications');
     }
 
-    // ── Mark single notification as read ─────────────────────
     public function markRead(int $id): void
     {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $this->notificationModel->markRead($id, (int)$_SESSION['user_id']);
-            $this->json(['success' => true]);
+            $userId = (int) $_SESSION['user_id'];
+            if ($id > 0) {
+                $this->notificationModel->markRead($id, $userId);
+            }
+            $this->json([
+                'success'      => true,
+                'unread_count' => $this->notificationModel->getUnreadCount($userId),
+            ]);
         }
-        $this->redirect('tenant/notifications');
+        $this->redirectNotifications();
     }
 
-    // ── Mark all notifications as read ────────────────────────
     public function markAllRead(): void
     {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $this->notificationModel->markAllRead((int)$_SESSION['user_id']);
-            $this->json(['success' => true]);
+            $userId = (int) $_SESSION['user_id'];
+            $this->notificationModel->markAllRead($userId);
+            $this->json(['success' => true, 'unread_count' => 0]);
         }
-        $this->redirect('tenant/notifications');
+        $this->redirectNotifications();
+    }
+
+    private function redirectNotifications(): void
+    {
+        $role = $_SESSION['user_role'] ?? 'tenant';
+        $this->redirect($role === 'landlord' ? 'landlord/notifications' : 'tenant/notifications');
     }
 }
-?>
-

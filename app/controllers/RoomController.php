@@ -14,8 +14,9 @@ class RoomController extends Controller
         $this->roomModel   = $this->model('Room');
         $this->auditLogModel = $this->model('AuditLog');
     }
-
-    // ── LANDLORD: List all rooms ───────────────────────────────
+    /**
+     * LANDLORD: List all rooms
+     */
     public function rooms(): void
     {
         $rooms = $this->roomModel->getAllWithOccupancy();
@@ -24,8 +25,9 @@ class RoomController extends Controller
             'rooms'     => $rooms,
         ], 'landlord');
     }
-
-    // ── LANDLORD: Add new room ─────────────────────────────────
+    /**
+     * LANDLORD: Add new room
+     */
     public function addRoom(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -56,8 +58,9 @@ class RoomController extends Controller
         $this->flash('success', "Room {$data['room_number']} created.");
         $this->redirect('landlord/rooms');
     }
-
-    // ── LANDLORD: Edit room ────────────────────────────────────
+    /**
+     * LANDLORD: Edit room
+     */
     public function editRoom(int $id): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -86,8 +89,9 @@ class RoomController extends Controller
         $this->flash('success', 'Room updated.');
         $this->redirect('landlord/rooms');
     }
-
-    // ── LANDLORD: Legacy store() compatibility ────────────────
+    /**
+     * LANDLORD: Legacy store() compatibility
+     */
     public function store(): void
     {
         $this->addRoom();

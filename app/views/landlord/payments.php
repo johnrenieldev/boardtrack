@@ -41,6 +41,7 @@ $filters    = $filters    ?? [];
 <!-- Filters -->
 <div class="card" style="margin-bottom:16px;padding:14px 20px;">
   <form method="GET" action="<?= Router::url('landlord/payments') ?>" class="filter-bar" style="margin-bottom:0;">
+    <input type="hidden" name="url" value="landlord/payments">
     <select name="status" class="form-select">
       <option value="">All Statuses</option>
       <option value="pending" <?= ($filters['status'] ?? '') === 'pending' ? 'selected' : '' ?>>Pending</option>
@@ -152,54 +153,6 @@ $filters    = $filters    ?? [];
   </div>
 </div>
 
-<!-- Approve Payment Modal -->
-<div class="modal-overlay" id="approvePaymentModal" style="display:none;">
-  <div class="modal">
-    <div class="modal-header">
-      <span class="modal-title">Approve Payment</span>
-      <button class="modal-close" onclick="closeModal('approvePaymentModal')">&times;</button>
-    </div>
-    <form action="<?= Router::url('landlord/approve-payment') ?>" method="POST">
-      <input type="hidden" name="payment_id" id="approvePaymentId">
-      <div class="modal-body">
-        <p style="margin:0 0 16px;color:var(--gray-600);">Approve payment from <strong id="approvePaymentTenant"></strong> for <strong>₱<span id="approvePaymentAmount"></span></strong>?</p>
-        <div class="form-group" style="margin-bottom:0;">
-          <label class="form-label">Notes (Optional)</label>
-          <textarea name="notes" class="form-textarea" rows="2" placeholder="Any additional notes..."></textarea>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeModal('approvePaymentModal')">Cancel</button>
-        <button type="submit" class="btn btn-success">Approve Payment</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- Reject Payment Modal -->
-<div class="modal-overlay" id="rejectPaymentModal" style="display:none;">
-  <div class="modal">
-    <div class="modal-header">
-      <span class="modal-title">Reject Payment</span>
-      <button class="modal-close" onclick="closeModal('rejectPaymentModal')">&times;</button>
-    </div>
-    <form action="<?= Router::url('landlord/reject-payment') ?>" method="POST">
-      <input type="hidden" name="payment_id" id="rejectPaymentId">
-      <div class="modal-body">
-        <div class="form-group" style="margin-bottom:0;">
-          <label class="form-label">Rejection Reason <span class="req">*</span></label>
-          <textarea name="reason" class="form-textarea" rows="3" required placeholder="Explain why this payment is being rejected..."></textarea>
-          <span class="form-help">This reason will be visible to the tenant.</span>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="closeModal('rejectPaymentModal')">Cancel</button>
-        <button type="submit" class="btn btn-danger">Reject Payment</button>
-      </div>
-    </form>
-  </div>
-</div>
-
 <script>
 function openModal(id) {
   document.getElementById(id).style.display = 'flex';
@@ -212,16 +165,6 @@ function closeModal(id) {
 function showProofModal(src) {
   document.getElementById('proofImage').src = src;
   openModal('proofModal');
-}
-function showApprovePaymentModal(paymentId, tenantName, amount) {
-  document.getElementById('approvePaymentId').value = paymentId;
-  document.getElementById('approvePaymentTenant').textContent = tenantName;
-  document.getElementById('approvePaymentAmount').textContent = amount.toLocaleString('en-PH', {minimumFractionDigits: 2});
-  openModal('approvePaymentModal');
-}
-function showRejectPaymentModal(paymentId) {
-  document.getElementById('rejectPaymentId').value = paymentId;
-  openModal('rejectPaymentModal');
 }
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {

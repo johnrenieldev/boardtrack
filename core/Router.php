@@ -1,6 +1,5 @@
 <?php
 
-
 class Router
 {
     /**
@@ -39,7 +38,7 @@ class Router
     /**
      * Generate a URL for an uploaded file.
      *
-     * @param string $subdir  'ids' | 'payments'
+     * @param string $subdir  'ids' | 'payments' | 'gcash'
      * @param string $filename
      * @return string
      */

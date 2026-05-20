@@ -20,8 +20,9 @@ class PersonalityController extends Controller
         $role = $_SESSION['user_role'] ?? 'tenant';
         $this->redirect($role === 'landlord' ? 'landlord/tenants' : 'tenant/personality');
     }
-
-    // ── TENANT: Personality questionnaire ─────────────────────
+    /**
+     * TENANT: Personality questionnaire
+     */
     public function personality(): void
     {
         if ($_SESSION['user_role'] !== 'tenant') {
@@ -38,8 +39,9 @@ class PersonalityController extends Controller
             'questions' => $questions,
         ], 'tenant');
     }
-
-    // ── TENANT: Submit personality answers ────────────────────
+    /**
+     * TENANT: Submit personality answers
+     */
     public function submitPersonality(): void
     {
         if ($_SESSION['user_role'] !== 'tenant' || $_SERVER['REQUEST_METHOD'] !== 'POST') {

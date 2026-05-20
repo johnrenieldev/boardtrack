@@ -2,80 +2,46 @@
 /**
  * BoardTrack — Tenant: Pay Bill
  */
+$bill          = $bill          ?? [];
+$landlordGcash = $landlordGcash ?? ['has_qr' => false, 'qr_url' => null, 'landlord_name' => 'Landlord'];
 ?>
-<div class="dash-page-header">
-  <div>
-    <h1 class="dash-page-title">Pay Bill</h1>
-    <p class="dash-page-sub">Upload your payment proof for landlord verification.</p>
+<div class="page-header">
+  <div class="page-header-row">
+    <div>
+      <h1 class="page-title">Pay Bill</h1>
+      <p class="page-subtitle">Choose GCash or in-person payment, then upload your receipt for landlord verification.</p>
+    </div>
+    <a href="<?= Router::url('tenant/bills') ?>" class="btn btn-secondary btn-sm"><i class="fa-solid fa-arrow-left"></i> Back</a>
   </div>
 </div>
 
-<div class="form-card max-w-xl">
-  <div class="bill-summary-card mb-6">
-    <div class="bill-summary-header">
-      <h3 class="bill-name"><?= htmlspecialchars($bill['bill_name']) ?></h3>
-      <span class="bill-amount">₱<?= number_format($bill['amount'], 2) ?></span>
-    </div>
-    <div class="bill-summary-body">
-      <div class="detail-row">
-        <span>Period:</span>
-        <span><?= htmlspecialchars(($bill['billing_period_start'] ?? '') . ' — ' . ($bill['billing_period_end'] ?? '')) ?></span>
+<div class="card" style="max-width: 640px;">
+  <div style="padding: 20px 24px; border-bottom: 1px solid var(--gray-100); background: var(--gray-50);">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="font-weight:600;font-size:1.05rem;color:var(--gray-900);"><?= htmlspecialchars($bill['bill_name']) ?></div>
+        <div style="font-size:0.82rem;color:var(--gray-500);margin-top:4px;">
+          <?= htmlspecialchars(($bill['billing_period_start'] ?? '') . ' — ' . ($bill['billing_period_end'] ?? '')) ?>
+        </div>
       </div>
-      <div class="detail-row">
-        <span>Due Date:</span>
-        <span class="text-danger"><?= date('M j, Y', strtotime($bill['due_date'])) ?></span>
+      <div style="text-align:right;">
+        <div style="font-size:0.75rem;color:var(--gray-500);">Amount due</div>
+        <div style="font-size:1.35rem;font-weight:700;color:var(--primary);">₱<?= number_format($bill['amount'], 2) ?></div>
+        <div style="font-size:0.78rem;color:var(--danger);">Due <?= date('M j, Y', strtotime($bill['due_date'])) ?></div>
       </div>
     </div>
   </div>
 
-  <form action="<?= Router::url('tenant/submit-payment') ?>" method="POST" enctype="multipart/form-data" class="dash-form">
-    <input type="hidden" name="bill_id" value="<?= $bill['id'] ?>">
-
-    <div class="form-group">
-      <label for="payment_method">Payment Method <span class="required">*</span></label>
-      <select name="payment_method" id="payment_method" class="form-select" required>
-        <option value="">— Select Method —</option>
-        <option value="gcash">GCash</option>
-        <option value="bank_transfer">Bank Transfer</option>
-        <option value="cash">Cash (Directly to Landlord)</option>
-        <option value="other">Other</option>
-      </select>
-    </div>
-
-    <div class="form-group">
-      <label for="payment_proof">Upload Proof of Payment (JPG/PNG, max 2MB) <span class="required">*</span></label>
-      <input type="file" name="payment_proof" id="payment_proof" class="form-input" accept="image/jpeg,image/png" required onchange="previewImage(this)">
-      <div id="imagePreview" class="mt-3" style="display: none;">
-        <img id="preview" src="" alt="Proof Preview" style="max-width: 100%; border-radius: 8px; border: 1px solid var(--gray-200);">
-      </div>
-    </div>
-
-    <div class="form-group">
-      <label for="notes">Notes (Optional)</label>
-      <textarea name="notes" id="notes" class="form-textarea" rows="3" placeholder="Reference number or any additional information..."></textarea>
-    </div>
-
-    <div class="form-actions">
+  <form action="<?= Router::url('tenant/submit-payment') ?>" method="POST" enctype="multipart/form-data" class="confirm-form"
+        data-action="Submit payment" data-message="Submit this payment receipt to your landlord for verification?"
+        style="padding: 24px;">
+    <?php
+    $billId = (int) ($bill['id'] ?? 0);
+    require APP_PATH . '/views/tenant/partials/payment_fields.php';
+    ?>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--gray-100);">
       <a href="<?= Router::url('tenant/bills') ?>" class="btn btn-outline">Cancel</a>
-      <button type="submit" class="btn btn-primary">Submit Payment Proof</button>
+      <button type="submit" class="btn btn-primary"><i class="fa-solid fa-upload"></i> Submit Payment</button>
     </div>
   </form>
 </div>
-
-<script>
-function previewImage(input) {
-  const preview = document.getElementById('preview');
-  const previewDiv = document.getElementById('imagePreview');
-  if (input.files && input.files[0]) {
-    const reader = new FileReader();
-    reader.onload = e => {
-      preview.src = e.target.result;
-      previewDiv.style.display = 'block';
-    };
-    reader.readAsDataURL(input.files[0]);
-  } else {
-    preview.src = '';
-    previewDiv.style.display = 'none';
-  }
-}
-</script>

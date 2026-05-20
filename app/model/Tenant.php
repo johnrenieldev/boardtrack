@@ -118,11 +118,19 @@ class Tenant extends Model
      */
     public function createProfile(int $userId, array $data): int
     {
-        return $this->insert([
-            'user_id' => $userId,
+        $row = [
+            'user_id'              => $userId,
             'room_type_preference' => $data['room_type_preference'] ?? $data['room_preference'] ?? null,
-            'id_document_path' => $data['id_document_path'] ?? $data['id_file_path'] ?? null
-        ]);
+            'id_document_path'     => $data['id_document_path'] ?? $data['id_file_path'] ?? null,
+            'guardian_name'        => $data['guardian_name'] ?? null,
+            'guardian_email'       => $data['guardian_email'] ?? null,
+            'guardian_purpose'     => $data['guardian_purpose'] ?? null,
+        ];
+        // Optional legacy column on some installs
+        if (!empty($data['guardian_name']) && $this->hasColumn('emergency_contact_name')) {
+            $row['emergency_contact_name'] = $data['guardian_name'];
+        }
+        return $this->insert($row);
     }
 
     /**
@@ -174,8 +182,6 @@ class Tenant extends Model
         ], ['id' => $tenantId]);
         return $affected > 0;
     }
-
-
 
     /**
      * Get tenant count by status
@@ -245,6 +251,4 @@ class Tenant extends Model
         return $row ?: null;
     }
 }
-
-
 

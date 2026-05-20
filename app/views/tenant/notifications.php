@@ -1,7 +1,8 @@
 <?php
 /**
- * BoardTrack — Tenant: Notifications
+ * BoardTrack — Notifications (tenant & landlord)
  */
+$markAllUrl = $markAllUrl ?? 'tenant/notifications/mark-all-read';
 ?>
 <div class="dash-page-header">
   <div>
@@ -10,7 +11,7 @@
   </div>
   <?php if (!empty($notifications)): ?>
     <div class="dash-page-actions">
-      <form action="<?= Router::url('tenant/mark-all-notifications-read') ?>" method="POST">
+      <form action="<?= Router::url($markAllUrl) ?>" method="POST" class="js-mark-all-notifications">
         <button type="submit" class="btn btn-outline"><i class="fa-solid fa-check-double"></i> Mark All Read</button>
       </form>
     </div>
@@ -21,19 +22,32 @@
   <div class="empty-state-card">
     <i class="fa-solid fa-bell-slash"></i>
     <h3>No Notifications</h3>
-    <p>You're all caught up! Notifications from your landlord will appear here.</p>
+    <p>You're all caught up! New alerts will appear here.</p>
   </div>
 <?php else: ?>
   <div class="data-card">
     <div style="padding: 8px 0;">
       <?php foreach ($notifications as $notif): ?>
-        <div class="notif-item <?= $notif['is_read'] ? '' : 'notif-unread' ?>">
+        <?php
+          $link = trim($notif['link_url'] ?? '');
+          $href = $link !== '' ? Router::url($link) : null;
+        ?>
+        <?php
+          $isRead = !empty($notif['is_read']);
+          $notifAttrs = ' data-notif-id="' . (int) $notif['id'] . '" data-notif-read="' . ($isRead ? '1' : '0') . '"';
+        ?>
+        <?php if ($href): ?>
+        <a href="<?= htmlspecialchars($href) ?>" class="notif-item notif-link <?= $isRead ? '' : 'notif-unread' ?>"<?= $notifAttrs ?> style="text-decoration:none;color:inherit;">
+        <?php else: ?>
+        <div class="notif-item <?= $isRead ? '' : 'notif-unread' ?>"<?= $notifAttrs ?> role="button" tabindex="0" style="cursor:pointer;">
+        <?php endif; ?>
           <div class="notif-icon-wrap">
             <i class="fa-solid <?= match($notif['type'] ?? 'general') {
               'payment'      => 'fa-peso-sign',
               'complaint'    => 'fa-exclamation-circle',
               'room'         => 'fa-door-open',
               'announcement' => 'fa-bullhorn',
+              'billing'      => 'fa-file-invoice',
               default        => 'fa-bell'
             } ?>"></i>
           </div>
@@ -45,7 +59,7 @@
           <?php if (!$notif['is_read']): ?>
             <span class="notif-dot"></span>
           <?php endif; ?>
-        </div>
+        <?php if ($href): ?></a><?php else: ?></div><?php endif; ?>
       <?php endforeach; ?>
     </div>
   </div>
@@ -62,7 +76,7 @@
   transition: background 0.15s;
 }
 .notif-item:last-child { border-bottom: none; }
-.notif-item:hover { background: var(--gray-50); }
+.notif-item:hover, .notif-link:hover { background: var(--gray-50); }
 .notif-unread { background: #F5F3FF; }
 .notif-icon-wrap {
   width: 40px;

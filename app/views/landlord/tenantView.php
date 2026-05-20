@@ -61,6 +61,30 @@ $availableRooms      = $availableRooms      ?? [];
           </div>
         </div>
 
+        <?php if (!empty($tenant['guardian_name']) || !empty($tenant['guardian_email'])): ?>
+        <div class="mt-6 pt-6 border-t border-gray-100">
+          <h4 class="text-sm font-bold text-gray-800 mb-3"><i class="fa-solid fa-user-shield text-amber-600"></i> Guardian / Emergency Contact</h4>
+          <div class="profile-details-grid">
+            <div class="detail-group">
+              <label>Contact Name</label>
+              <div class="detail-value"><?= htmlspecialchars($tenant['guardian_name'] ?? '—') ?></div>
+            </div>
+            <div class="detail-group">
+              <label>Contact Email</label>
+              <div class="detail-value">
+                <?php if (!empty($tenant['guardian_email'])): ?>
+                  <a href="mailto:<?= htmlspecialchars($tenant['guardian_email']) ?>"><?= htmlspecialchars($tenant['guardian_email']) ?></a>
+                <?php else: ?>—<?php endif; ?>
+              </div>
+            </div>
+            <div class="detail-group" style="grid-column:1/-1;">
+              <label>Why we contact this person</label>
+              <div class="detail-value" style="white-space:pre-wrap;"><?= htmlspecialchars($tenant['guardian_purpose'] ?? '—') ?></div>
+            </div>
+          </div>
+        </div>
+        <?php endif; ?>
+
         <?php $idDocPath = $tenant['id_document_path'] ?? $tenant['id_file_path'] ?? null; ?>
         <?php if ($idDocPath): ?>
           <div class="mt-6">
@@ -208,7 +232,9 @@ $availableRooms      = $availableRooms      ?? [];
       <span class="modal-title">Reject Tenant</span>
       <button class="modal-close" onclick="closeModal('rejectModal')">&times;</button>
     </div>
-    <form action="<?= Router::url('landlord/reject-tenant') ?>" method="POST">
+    <form action="<?= Router::url('landlord/reject-tenant') ?>" method="POST"
+          data-confirm="Reject this tenant application? This cannot be undone."
+          data-action="Reject tenant" data-color="#dc2626" data-confirm-text="Yes, reject">
       <input type="hidden" name="tenant_id" value="<?= $tenant['id'] ?? '' ?>">
       <div class="modal-body">
         <div class="form-group" style="margin-bottom:0;">
@@ -260,7 +286,9 @@ $availableRooms      = $availableRooms      ?? [];
       <span class="modal-title">Mark as Moved Out</span>
       <button class="modal-close" onclick="closeModal('moveOutModal')">&times;</button>
     </div>
-    <form action="<?= Router::url('landlord/move-out-tenant') ?>" method="POST">
+    <form action="<?= Router::url('landlord/move-out-tenant') ?>" method="POST"
+          data-confirm="Mark this tenant as moved out and remove them from their room?"
+          data-action="Confirm move out" data-color="#dc2626" data-confirm-text="Yes, move out">
       <input type="hidden" name="tenant_id" value="<?= $tenant['id'] ?? '' ?>">
       <div class="modal-body">
         <p style="margin:0 0 16px;color:var(--gray-600);">Are you sure you want to mark <strong><?= htmlspecialchars($tenant['name'] ?? '') ?></strong> as moved out? This will remove them from Room <?= htmlspecialchars($tenant['room_number'] ?? '') ?>.</p>

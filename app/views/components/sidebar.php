@@ -7,6 +7,7 @@ $role        = $role ?? ($_SESSION['user_role'] ?? 'tenant');
 $userName    = $_SESSION['user_name'] ?? 'User';
 $userInitial = strtoupper(substr($userName, 0, 1));
 $currentUrl  = $_GET['url'] ?? '';
+$sidebarUnread = (int) ($unreadNotificationCount ?? 0);
 ?>
 <aside class="sidebar" id="sidebar">
 
@@ -38,17 +39,18 @@ $currentUrl  = $_GET['url'] ?? '';
          class="nav-item <?= str_starts_with($currentUrl, 'landlord/dashboard') ? 'active' : '' ?>">
         <i class="fa-solid fa-gauge"></i><span>Dashboard</span>
       </a>
+      <?php
+        $pendingNavActive = ($currentUrl === 'landlord/tenants' && ($_GET['status'] ?? '') === 'pending');
+        $tenantsNavActive = str_starts_with($currentUrl, 'landlord/tenant') && !$pendingNavActive;
+      ?>
+
       <a href="<?= Router::url('landlord/tenants') ?>"
-         class="nav-item <?= str_starts_with($currentUrl, 'landlord/tenant') ? 'active' : '' ?>">
+         class="nav-item <?= $tenantsNavActive ? 'active' : '' ?>">
         <i class="fa-solid fa-users"></i><span>Tenants</span>
       </a>
       <a href="<?= Router::url('landlord/rooms') ?>"
          class="nav-item <?= str_starts_with($currentUrl, 'landlord/room') ? 'active' : '' ?>">
         <i class="fa-solid fa-door-open"></i><span>Rooms</span>
-      </a>
-      <a href="<?= Router::url('landlord/waitingList') ?>"
-         class="nav-item <?= str_starts_with($currentUrl, 'landlord/waiting') ? 'active' : '' ?>">
-        <i class="fa-solid fa-list-ol"></i><span>Waiting List</span>
       </a>
 
       <div class="nav-section-label">Finance</div>
@@ -70,11 +72,18 @@ $currentUrl  = $_GET['url'] ?? '';
          class="nav-item <?= str_starts_with($currentUrl, 'landlord/announcement') ? 'active' : '' ?>">
         <i class="fa-solid fa-bullhorn"></i><span>Announcements</span>
       </a>
+      <a href="<?= Router::url('landlord/notifications') ?>"
+         class="nav-item <?= str_starts_with($currentUrl, 'landlord/notification') ? 'active' : '' ?>">
+        <i class="fa-solid fa-bell"></i><span>Notifications</span>
+        <?php if ($sidebarUnread > 0): ?>
+          <span class="nav-badge" id="sidebarNotifBadge"><?= $sidebarUnread > 99 ? '99+' : $sidebarUnread ?></span>
+        <?php endif; ?>
+      </a>
 
-      <div class="nav-section-label">System</div>
-      <a href="<?= Router::url('landlord/auditLog') ?>"
-         class="nav-item <?= str_starts_with($currentUrl, 'landlord/auditLog') ? 'active' : '' ?>">
-        <i class="fa-solid fa-scroll"></i><span>Audit Log</span>
+      <div class="nav-section-label">Account</div>
+      <a href="<?= Router::url('landlord/profile') ?>"
+         class="nav-item <?= str_starts_with($currentUrl, 'landlord/profile') ? 'active' : '' ?>">
+        <i class="fa-solid fa-user"></i><span>Profile</span>
       </a>
 
     <?php else: ?>
@@ -94,6 +103,9 @@ $currentUrl  = $_GET['url'] ?? '';
       <a href="<?= Router::url('tenant/notifications') ?>"
          class="nav-item <?= str_starts_with($currentUrl, 'tenant/notification') ? 'active' : '' ?>">
         <i class="fa-solid fa-bell"></i><span>Notifications</span>
+        <?php if ($sidebarUnread > 0): ?>
+          <span class="nav-badge" id="sidebarNotifBadge"><?= $sidebarUnread > 99 ? '99+' : $sidebarUnread ?></span>
+        <?php endif; ?>
       </a>
       <a href="<?= Router::url('tenant/profile') ?>"
          class="nav-item <?= str_starts_with($currentUrl, 'tenant/profile') ? 'active' : '' ?>">
@@ -105,7 +117,9 @@ $currentUrl  = $_GET['url'] ?? '';
   </nav>
 
   <div class="sidebar-footer">
-    <a href="<?= Router::url('auth/logout') ?>" class="nav-item nav-logout">
+    <a href="<?= Router::url('auth/logout') ?>"
+       class="nav-item nav-logout confirm-logout"
+       data-message="Are you sure you want to log out? You will need to sign in again to continue.">
       <i class="fa-solid fa-right-from-bracket"></i><span>Log Out</span>
     </a>
   </div>

@@ -1,7 +1,6 @@
 <?php
 /**
  * BoardTrack — Landlord Layout
- * app/views/layouts/landlord.php
  */
 $role = 'landlord';
 ?>
@@ -18,7 +17,10 @@ $role = 'landlord';
   <link rel="stylesheet" href="<?= Router::asset('css/dashboard.css') ?>">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
-<body class="dashboard-body">
+<body class="dashboard-body"
+  data-mark-notif-read-url="<?= htmlspecialchars($markNotificationReadUrl ?? '', ENT_QUOTES) ?>"
+  data-mark-all-notif-url="<?= htmlspecialchars($markAllNotificationsUrl ?? '', ENT_QUOTES) ?>"
+  data-unread-notif-count="<?= (int) ($unreadNotificationCount ?? 0) ?>">
 <div class="dashboard-layout">
 
   <?php require APP_PATH . '/views/components/sidebar.php'; ?>
@@ -34,9 +36,10 @@ $role = 'landlord';
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= Router::asset('js/confirm-actions.js') ?>"></script>
+<script src="<?= Router::asset('js/notifications.js') ?>"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  // Sidebar toggle
   var sidebar   = document.getElementById('sidebar');
   var toggle    = document.getElementById('sidebarToggle');
   var closeBtn  = document.getElementById('sidebarClose');
@@ -49,36 +52,8 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }
   });
-
-  // SweetAlert confirm links (only non-form elements)
-  document.querySelectorAll('a[data-confirm], button[data-confirm]:not([type="submit"])').forEach(function(el) {
-    el.addEventListener('click', function(e) {
-      e.preventDefault();
-      var href = el.getAttribute('href') || el.getAttribute('data-href');
-      var msg  = el.getAttribute('data-confirm') || 'Are you sure?';
-      Swal.fire({
-        title: 'Confirm', text: msg,
-        icon: 'warning', showCancelButton: true,
-        confirmButtonColor: '#2563eb', cancelButtonColor: '#9ca3af',
-        confirmButtonText: 'Yes, proceed'
-      }).then(function(r) { if (r.isConfirmed && href) window.location.href = href; });
-    });
-  });
-
-  // SweetAlert confirm forms
-  document.querySelectorAll('form[data-confirm]').forEach(function(form) {
-    form.addEventListener('submit', function(e) {
-      e.preventDefault();
-      var msg = form.getAttribute('data-confirm');
-      Swal.fire({
-        title: 'Confirm', text: msg,
-        icon: 'warning', showCancelButton: true,
-        confirmButtonColor: '#2563eb', cancelButtonColor: '#9ca3af',
-        confirmButtonText: 'Yes, proceed'
-      }).then(function(r) { if (r.isConfirmed) form.submit(); });
-    });
-  });
 });
 </script>
+<?php require APP_PATH . '/views/landlord/partials/payment_modals.php'; ?>
 </body>
 </html>

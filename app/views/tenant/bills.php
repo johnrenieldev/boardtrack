@@ -4,32 +4,30 @@
  * app/views/tenant/bills.php
  * Layout: tenant.php
  */
-$bills      = $bills      ?? [];
-$statistics = $statistics ?? [];
+$bills         = $bills         ?? [];
+$statistics    = $statistics    ?? [];
+$landlordGcash = $landlordGcash ?? ['has_qr' => false, 'qr_url' => null, 'landlord_name' => 'Landlord'];
 ?>
 
 <div class="page-header">
   <div class="page-header-row">
     <div>
       <h1 class="page-title">My Bills</h1>
-      <p class="page-subtitle">View your rent bills and upload payment proof.</p>
+      <p class="page-subtitle">Room bills (shared with roommates) and individual bills assigned only to you.</p>
     </div>
   </div>
 </div>
 
 <!-- Statistics -->
-<div class="stats-grid" style="grid-template-columns: repeat(5, 1fr);">
+<div class="stats-grid">
   <div class="stat-card">
-    <div class="stat-label">Total Bills</div>
-    <div class="stat-value"><?= $statistics['total'] ?? 0 ?></div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-label">Unpaid</div>
+    <div class="stat-label">Unpaid Bills</div>
     <div class="stat-value"><?= $statistics['unpaid'] ?? 0 ?></div>
   </div>
   <div class="stat-card">
     <div class="stat-label">Pending</div>
     <div class="stat-value"><?= $statistics['pending'] ?? 0 ?></div>
+    <div class="stat-meta">Awaiting verification</div>
   </div>
   <div class="stat-card">
     <div class="stat-label">Paid</div>
@@ -54,7 +52,13 @@ $statistics = $statistics ?? [];
 
 <!-- Bills Table -->
 <div class="card">
-  <?php if (empty($bills)): ?>
+  <?php if (!empty($noRoom)): ?>
+    <div class="empty-state">
+      <i class="fa-solid fa-door-closed"></i>
+      <h3>No Room Assigned</h3>
+      <p>Bills are issued per room. You will see bills here once a room is assigned to you.</p>
+    </div>
+  <?php elseif (empty($bills)): ?>
     <div class="empty-state">
       <i class="fa-solid fa-file-invoice-dollar"></i>
       <h3>No Bills Yet</h3>
@@ -66,6 +70,7 @@ $statistics = $statistics ?? [];
         <thead>
           <tr>
             <th>Bill</th>
+            <th>Type</th>
             <th>Period</th>
             <th>Amount</th>
             <th>Due Date</th>
@@ -89,6 +94,11 @@ $statistics = $statistics ?? [];
               <?php if (!empty($bill['notes'])): ?>
                 <div class="td-sub"><?= htmlspecialchars($bill['notes']) ?></div>
               <?php endif; ?>
+            </td>
+            <td>
+              <span class="badge <?= ($bill['billing_type'] ?? '') === 'individual' ? 'badge-info' : 'badge-normal' ?>">
+                <?= ($bill['billing_type'] ?? '') === 'individual' ? 'Individual' : 'Room' ?>
+              </span>
             </td>
             <td style="color:var(--gray-500);font-size:0.82rem;"><?= htmlspecialchars(($bill['billing_period_start'] ?? '') . ' — ' . ($bill['billing_period_end'] ?? '')) ?></td>
             <td style="font-weight:600;">₱<?= number_format($bill['amount'], 2) ?></td>
@@ -115,12 +125,13 @@ $statistics = $statistics ?? [];
 
 <!-- Payment Modal -->
 <div class="modal-overlay" id="paymentModal" style="display:none;">
-  <div class="modal">
+  <div class="modal modal-lg">
     <div class="modal-header">
-      <div class="modal-title">Upload Payment Proof</div>
+      <div class="modal-title">Pay Bill</div>
       <button class="modal-close" onclick="closeModal('paymentModal')"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <form action="<?= Router::url('tenant/submit-payment') ?>" method="POST" enctype="multipart/form-data">
+    <form action="<?= Router::url('tenant/submit-payment') ?>" method="POST" enctype="multipart/form-data" class="confirm-form"
+          data-action="Submit payment" data-message="Submit this payment receipt to your landlord for verification?">
       <input type="hidden" name="bill_id" id="paymentBillId">
       <div class="modal-body">
         <div style="background:var(--gray-50);padding:14px 16px;border-radius:var(--radius);margin-bottom:16px;">
@@ -137,33 +148,7 @@ $statistics = $statistics ?? [];
             <strong id="paymentDueDate" style="font-size:0.85rem;color:var(--gray-900);"></strong>
           </div>
         </div>
-
-        <div class="form-group">
-          <label class="form-label">Payment Method <span class="req">*</span></label>
-          <select name="payment_method" class="form-select" required>
-            <option value="">— Select —</option>
-            <option value="gcash">GCash</option>
-            <option value="bank_transfer">Bank Transfer</option>
-            <option value="cash">Cash</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Payment Proof <span class="req">*</span></label>
-          <div class="upload-area" id="uploadZone" onclick="document.getElementById('paymentFile').click()">
-            <i class="fa-solid fa-cloud-arrow-up"></i>
-            <p>Click to upload or drag & drop</p>
-            <p style="font-size:0.75rem;color:var(--gray-400);margin-top:4px;">JPG or PNG, max 2MB</p>
-          </div>
-          <input type="file" name="payment_proof" id="paymentFile" accept=".jpg,.jpeg,.png" required style="display:none" onchange="updateFileName(this)">
-          <div class="form-help" id="fileName"></div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Notes (Optional)</label>
-          <textarea name="notes" class="form-textarea" rows="2" placeholder="Any additional information..."></textarea>
-        </div>
+        <?php require APP_PATH . '/views/tenant/partials/payment_fields.php'; ?>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" onclick="closeModal('paymentModal')">Cancel</button>
@@ -179,9 +164,13 @@ function openPaymentModal(billId, billName, amount, dueDate) {
   document.getElementById('paymentBillName').textContent = billName;
   document.getElementById('paymentAmount').textContent = '₱' + amount.toLocaleString('en-PH', {minimumFractionDigits: 2});
   document.getElementById('paymentDueDate').textContent = dueDate;
-  document.getElementById('fileName').textContent = '';
+  var method = document.getElementById('payment_method');
+  if (method) method.value = '';
   var fileInput = document.getElementById('paymentFile');
   if (fileInput) fileInput.value = '';
+  if (typeof togglePaymentMethod === 'function') togglePaymentMethod();
+  var preview = document.getElementById('receiptPreview');
+  if (preview) preview.style.display = 'none';
   document.getElementById('paymentModal').style.display = 'flex';
   document.body.style.overflow = 'hidden';
 }
@@ -191,10 +180,6 @@ function closeModal(id) {
   document.body.style.overflow = '';
 }
 
-function updateFileName(input) {
-  var el = document.getElementById('fileName');
-  el.textContent = input.files[0] ? input.files[0].name : '';
-}
 
 function filterBills(status) {
   var rows = document.querySelectorAll('#billsTable tbody tr');

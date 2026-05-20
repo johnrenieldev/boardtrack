@@ -50,21 +50,30 @@
     .alert-public.error   { background: #fef2f2; border-color: #fecaca; color: #7f1d1d; }
     .alert-public.success { background: #f0fdf4; border-color: #bbf7d0; color: #14532d; }
     .alert-public.warning { background: #fffbeb; border-color: #fde68a; color: #78350f; }
+    .alert-public.info    { background: #eff6ff; border-color: #bfdbfe; color: #1e3a5f; }
   </style>
 </head>
 <body class="bg-gray-50 text-gray-900">
 
 <?php
-// Render public flash messages
+// Render public flash messages (top-right toast)
 $flash = $_SESSION['flash'] ?? [];
 if (!empty($flash)):
   foreach ($flash as $f):
-    $type = $f['type'] === 'error' ? 'error' : ($f['type'] === 'success' ? 'success' : 'warning');
-    $icons = ['error'=>'fa-circle-xmark','success'=>'fa-circle-check','warning'=>'fa-triangle-exclamation'];
+    $rawType = $f['type'] ?? 'error';
+    // Map all known types; anything else falls back to 'warning'
+    $type = in_array($rawType, ['error','success','warning','info']) ? $rawType : 'warning';
+    $icons = [
+      'error'   => 'fa-circle-xmark',
+      'success' => 'fa-circle-check',
+      'warning' => 'fa-triangle-exclamation',
+      'info'    => 'fa-circle-info',
+    ];
+    $icon = $icons[$type] ?? 'fa-circle-info';
 ?>
-  <div class="fixed top-4 right-4 z-50 max-w-sm w-full">
+  <div class="flash-toast fixed top-4 right-4 z-50 max-w-sm w-full">
     <div class="alert-public <?= $type ?>">
-      <i class="fa-solid <?= $icons[$type] ?> mt-0.5 flex-shrink-0"></i>
+      <i class="fa-solid <?= $icon ?> mt-0.5 flex-shrink-0"></i>
       <span><?= htmlspecialchars($f['message']) ?></span>
     </div>
   </div>
@@ -77,10 +86,10 @@ endif;
 <?php require $__viewFile; ?>
 
 <script>
-// Simple flash auto-dismiss
+// Flash auto-dismiss — only removes the .flash-toast wrapper, never touches page content
 setTimeout(function() {
-  document.querySelectorAll('.alert-public').forEach(function(el) {
-    el.parentElement && el.parentElement.remove ? el.parentElement.remove() : el.remove();
+  document.querySelectorAll('.flash-toast').forEach(function(el) {
+    el.remove();
   });
 }, 5000);
 </script>

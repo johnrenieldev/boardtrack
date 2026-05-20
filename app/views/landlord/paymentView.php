@@ -46,7 +46,12 @@
           </div>
           <div>
             <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Payment Method</label>
-            <div class="text-gray-700 uppercase"><?= htmlspecialchars($payment['payment_method']) ?></div>
+            <div class="text-gray-700"><?= match($payment['payment_method'] ?? '') {
+              'gcash' => 'GCash',
+              'cash' => 'In person / Cash',
+              'bank_transfer' => 'Bank Transfer',
+              default => ucfirst(str_replace('_', ' ', $payment['payment_method'] ?? 'other')),
+            } ?></div>
           </div>
         </div>
 
@@ -68,16 +73,23 @@
       </div>
     </div>
 
-    <!-- Payment Proof Image -->
+    <!-- Payment receipt -->
+    <?php $proofFile = $payment['proof_file_path'] ?? $payment['proof_file'] ?? ''; ?>
     <div class="data-card">
       <div class="card-header flex justify-between items-center">
-        <h3><i class="fa-solid fa-image"></i> Payment Proof</h3>
-        <a href="<?= Router::upload('payments', $payment['proof_file_path']) ?>" target="_blank" class="btn btn-sm btn-outline">
-          <i class="fa-solid fa-up-right-from-square"></i> Open Original
+        <h3><i class="fa-solid fa-receipt"></i> Payment Receipt</h3>
+        <?php if ($proofFile): ?>
+        <a href="<?= Router::upload('payments', $proofFile) ?>" target="_blank" class="btn btn-sm btn-outline">
+          <i class="fa-solid fa-up-right-from-bracket"></i> Open Full Size
         </a>
+        <?php endif; ?>
       </div>
       <div class="card-body p-0">
-        <img src="<?= Router::upload('payments', $payment['proof_file_path']) ?>" alt="Payment Proof" style="width: 100%; display: block;">
+        <?php if ($proofFile): ?>
+        <img src="<?= Router::upload('payments', $proofFile) ?>" alt="Payment receipt" style="width: 100%; display: block;">
+        <?php else: ?>
+        <p style="padding: 20px; color: var(--gray-500);">No receipt image on file.</p>
+        <?php endif; ?>
       </div>
     </div>
   </div>
@@ -110,7 +122,7 @@
           <h3><i class="fa-solid fa-gears"></i> Review Actions</h3>
         </div>
         <div class="card-body">
-          <button type="button" class="btn btn-success btn-block mb-3" onclick="showApprovePaymentModal(<?= $payment['id'] ?>, '<?= htmlspecialchars($payment['tenant_name']) ?>', <?= $payment['amount_paid'] ?>)">
+          <button type="button" class="btn btn-success btn-block mb-3" onclick="showApprovePaymentModal(<?= (int) $payment['id'] ?>, <?= json_encode($payment['tenant_name']) ?>, <?= (float) $payment['amount_paid'] ?>)">
             <i class="fa-solid fa-check"></i> Approve Payment
           </button>
           <button type="button" class="btn btn-danger btn-block" onclick="showRejectPaymentModal(<?= $payment['id'] ?>)">

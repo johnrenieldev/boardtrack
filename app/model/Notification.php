@@ -16,8 +16,29 @@ class Notification extends Model
             'message' => $message,
             'type'    => $type,
             'is_read' => 0,
-            'link'    => $link,
+            'link_url'=> $link,
         ]);
+    }
+
+    public function createNotificationsBulk(array $userIds, string $type, string $title, string $message, string $link = ''): int
+    {
+        if (empty($userIds)) return 0;
+        
+        $columns = ['user_id', 'title', 'message', 'type', 'is_read', 'link_url'];
+        $rows = [];
+        
+        foreach ($userIds as $uid) {
+            $rows[] = [
+                'user_id' => $uid,
+                'title'   => $title,
+                'message' => $message,
+                'type'    => $type,
+                'is_read' => 0,
+                'link_url'=> $link
+            ];
+        }
+        
+        return $this->bulkInsert($columns, $rows);
     }
 
     public function getForUser(int $userId, bool $unreadOnly = false, int $limit = 20): array

@@ -22,8 +22,9 @@ class AnnouncementController extends Controller
         $role = $_SESSION['user_role'] ?? 'tenant';
         $this->redirect($role === 'landlord' ? 'landlord/announcements' : 'tenant/notifications');
     }
-
-    // ── LANDLORD: List announcements ────────────────────────────
+    /**
+     * LANDLORD: List announcements
+     */
     public function announcements(): void
     {
         if ($_SESSION['user_role'] !== 'landlord') {
@@ -35,8 +36,9 @@ class AnnouncementController extends Controller
             'announcements' => $announcements,
         ], 'landlord');
     }
-
-    // ── LANDLORD: Create announcement ──────────────────────────
+    /**
+     * LANDLORD: Create announcement
+     */
     public function createAnnouncement(): void
     {
         if ($_SESSION['user_role'] !== 'landlord') {
@@ -69,8 +71,9 @@ class AnnouncementController extends Controller
         $this->flash('success', 'Announcement created and tenants notified.');
         $this->redirect('landlord/announcements');
     }
-
-    // ── LANDLORD: Delete announcement ──────────────────────────
+    /**
+     * LANDLORD: Delete announcement
+     */
     public function deleteAnnouncement(int $id): void
     {
         if ($_SESSION['user_role'] !== 'landlord') {
@@ -80,8 +83,9 @@ class AnnouncementController extends Controller
         $this->flash('success', 'Announcement deleted.');
         $this->redirect('landlord/announcements');
     }
-
-    // ── TENANT: Announcements — redirected to notifications ────
+    /**
+     * TENANT: Announcements — redirected to notifications
+     */
     public function tenantAnnouncements(): void
     {
         $this->redirect('tenant/notifications');

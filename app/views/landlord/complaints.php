@@ -41,6 +41,7 @@ $filters    = $filters    ?? [];
 <!-- Filters -->
 <div class="card" style="margin-bottom:16px;padding:14px 20px;">
   <form method="GET" action="<?= Router::url('landlord/complaints') ?>" class="filter-bar" style="margin-bottom:0;">
+    <input type="hidden" name="url" value="landlord/complaints">
     <select name="status" class="form-select">
       <option value="">All Statuses</option>
       <option value="pending" <?= ($filters['status'] ?? '') === 'pending' ? 'selected' : '' ?>>Pending</option>
@@ -278,10 +279,21 @@ function showUpdateStatusModal() {
 }
 
 function confirmDeleteComplaint(id, title) {
-  if (confirm('Permanently delete complaint "' + title + '"?\nThis cannot be undone.')) {
-    document.getElementById('deleteComplaintId').value = id;
-    document.getElementById('deleteComplaintForm').submit();
-  }
+  Swal.fire({
+    title: 'Delete complaint?',
+    text: 'Permanently delete "' + title + '"? This cannot be undone.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#94a3b8',
+    confirmButtonText: 'Yes, delete',
+    cancelButtonText: 'Cancel',
+  }).then(function (r) {
+    if (r.isConfirmed) {
+      document.getElementById('deleteComplaintId').value = id;
+      document.getElementById('deleteComplaintForm').submit();
+    }
+  });
 }
 
 document.addEventListener('keydown', function(e) {

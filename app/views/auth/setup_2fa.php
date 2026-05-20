@@ -1,0 +1,166 @@
+<?php
+/**
+ * BoardTrack — 2FA Setup / Management Page
+ * app/views/auth/setup_2fa.php
+ * Layout: landlord.php OR tenant.php (determined by AuthController::setup2FA())
+ *
+ * Variables:
+ *   $user          (array)       Current user row (no secret, no password_hash)
+ *   $has2FA        (bool)        Whether 2FA is currently enabled
+ *   $pendingSecret (string|null) Base32 secret (for manual entry only; NOT exposed in page JS)
+ *   $qrUrl         (string|null) Google Charts QR image URL (already built server-side)
+ */
+
+$alerts = $_SESSION['flash'] ?? [];
+unset($_SESSION['flash']);
+?>
+
+<div class="dash-page-header">
+  <div>
+    <h1 class="dash-page-title">Two-Factor Authentication</h1>
+    <p class="dash-page-sub">Secure your account with Google Authenticator.</p>
+  </div>
+</div>
+
+<?php foreach ($alerts as $f): ?>
+  <div class="alert <?= $f['type'] ?>" style="margin-top: 16px;">
+    <i class="fa-solid <?= $f['type'] === 'error' ? 'fa-circle-xmark' : 'fa-circle-check' ?>"></i>
+    <?= htmlspecialchars($f['message']) ?>
+  </div>
+<?php endforeach; ?>
+
+<div class="card" style="max-width: 620px; margin-top: 24px;">
+  <div class="card-header">
+    <h3>
+      <i class="fa-solid fa-shield-halved"></i>
+      Authenticator App
+      <?php if ($has2FA): ?>
+        <span class="badge badge-success" style="margin-left: 8px; font-size: 0.75rem;">Active</span>
+      <?php else: ?>
+        <span class="badge badge-warning" style="margin-left: 8px; font-size: 0.75rem;">Not enabled</span>
+      <?php endif; ?>
+    </h3>
+  </div>
+
+  <div class="card-body">
+
+    <?php if ($has2FA): ?>
+      <!-- ── 2FA IS ENABLED ─────────────────────────────────────── -->
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+        <div style="width: 48px; height: 48px; background: var(--green-100); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+          <i class="fa-solid fa-check text-success" style="font-size: 1.25rem;"></i>
+        </div>
+        <div>
+          <p style="font-weight: 600; color: var(--gray-800);">Two-factor authentication is enabled.</p>
+          <p style="font-size: 0.85rem; color: var(--gray-500);">
+            Your account is protected. You will be asked for a code on every login.
+          </p>
+        </div>
+      </div>
+
+      <hr style="margin: 20px 0; border: 0; border-top: 1px solid var(--gray-200);">
+
+      <h4 style="margin-bottom: 12px; color: var(--gray-700);">Disable Two-Factor Authentication</h4>
+      <p style="font-size: 0.85rem; color: var(--gray-500); margin-bottom: 16px;">
+        To disable 2FA you must verify your current password <strong>and</strong> your authenticator code.
+      </p>
+
+      <button type="button" onclick="document.getElementById('disablePanel').classList.toggle('hidden')"
+        class="btn btn-danger-outline" style="margin-bottom: 16px;">
+        <i class="fa-solid fa-lock-open"></i> Disable 2FA
+      </button>
+
+      <div id="disablePanel" class="hidden">
+        <form action="<?= Router::url('auth/disable2FA') ?>" method="POST" style="background: var(--gray-50); padding: 20px; border-radius: 8px; border: 1px solid var(--gray-200);">
+          <div class="form-group">
+            <label>Current Password <span class="text-danger">*</span></label>
+            <input type="password" name="current_password" class="form-input" placeholder="••••••••" required autocomplete="current-password">
+          </div>
+          <div class="form-group">
+            <label>Authenticator Code <span class="text-danger">*</span></label>
+            <input type="text" name="totp_code" class="form-input font-mono" placeholder="000000"
+                   maxlength="6" inputmode="numeric" autocomplete="one-time-code" required>
+          </div>
+          <button type="submit" class="btn btn-danger"
+            onclick="return confirm('Are you sure you want to disable two-factor authentication?')">
+            Confirm — Disable 2FA
+          </button>
+        </form>
+      </div>
+
+    <?php elseif ($pendingSecret && $qrUrl): ?>
+      <!-- ── SETUP IN PROGRESS: QR shown ───────────────────────── -->
+      <p style="color: var(--gray-600); margin-bottom: 20px;">
+        <strong>Step 1:</strong> Open <strong>Google Authenticator</strong> on your phone and tap the <strong>+</strong> button → <em>Scan a QR code</em>.
+      </p>
+
+      <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 20px;">
+        <!-- QR image is fetched by the browser from Google Charts. The secret is embedded
+             inside the otpauth:// URI within the QR — this is by design and is how all
+             TOTP apps receive the secret. It is NOT echoed as plain text in the HTML. -->
+        <img src="<?= htmlspecialchars($qrUrl) ?>"
+             alt="Google Authenticator QR Code"
+             style="width: 200px; height: 200px; border: 4px solid var(--gray-200); border-radius: 8px;">
+        <p style="font-size: 0.8rem; color: var(--gray-400); margin-top: 8px;">Scan with Google Authenticator</p>
+      </div>
+
+      <hr style="margin: 20px 0; border: 0; border-top: 1px solid var(--gray-200);">
+
+      <p style="color: var(--gray-600); margin-bottom: 16px;">
+        <strong>Step 2:</strong> Enter the 6-digit code shown in the app to confirm setup.
+      </p>
+
+      <form action="<?= Router::url('auth/setup2FAConfirm') ?>" method="POST">
+        <div class="form-group">
+          <label>Verification Code <span class="text-danger">*</span></label>
+          <input type="text" name="totp_code" class="form-input font-mono"
+                 placeholder="000000" maxlength="6" inputmode="numeric"
+                 autocomplete="one-time-code" autofocus required
+                 style="letter-spacing: 0.3em; font-size: 1.2rem; text-align: center;">
+        </div>
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-check"></i> Confirm &amp; Enable 2FA
+        </button>
+      </form>
+
+    <?php else: ?>
+      <!-- ── 2FA NOT ENABLED, NOT STARTED ──────────────────────── -->
+      <p style="color: var(--gray-600); margin-bottom: 20px;">
+        Two-factor authentication adds a second layer of security. After entering your password,
+        you will also be asked for a code from the Google Authenticator app on your phone.
+      </p>
+
+      <div style="background: var(--blue-50, #eff6ff); border: 1px solid var(--blue-200, #bfdbfe); border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+        <p style="font-size: 0.85rem; color: var(--blue-700, #1d4ed8); margin: 0;">
+          <i class="fa-solid fa-circle-info"></i>
+          <strong>Before you start:</strong> Install <strong>Google Authenticator</strong> on your phone
+          (<a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2" target="_blank" rel="noopener" style="color: inherit;">Android</a> /
+           <a href="https://apps.apple.com/app/google-authenticator/id388497605" target="_blank" rel="noopener" style="color: inherit;">iOS</a>).
+        </p>
+      </div>
+
+      <form action="<?= Router::url('auth/setup2FAInit') ?>" method="POST">
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-shield-halved"></i> Enable Two-Factor Authentication
+        </button>
+      </form>
+
+    <?php endif; ?>
+
+  </div><!-- /card-body -->
+</div><!-- /card -->
+
+<!-- Change Password link -->
+<div class="card" style="max-width: 620px; margin-top: 20px;">
+  <div class="card-body" style="display: flex; justify-content: space-between; align-items: center;">
+    <div>
+      <strong style="color: var(--gray-800);">Change Password</strong>
+      <p style="font-size: 0.85rem; color: var(--gray-500); margin: 0;">
+        Update your login password. <?= $has2FA ? 'Requires authenticator code.' : '' ?>
+      </p>
+    </div>
+    <a href="<?= Router::url('auth/changePassword') ?>" class="btn btn-secondary">
+      <i class="fa-solid fa-key"></i> Change Password
+    </a>
+  </div>
+</div>

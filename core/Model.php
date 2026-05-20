@@ -10,9 +10,7 @@ class Model
         $this->db = Database::getInstance();
     }
 
-    // ─────────────────────────────────────────────────────────
     // CORE QUERY HELPERS
-    // ─────────────────────────────────────────────────────────
 
     /**
      * Fetch all rows from the model's table.
@@ -104,6 +102,44 @@ class Model
     }
 
     /**
+     * Insert multiple rows in a single query.
+     *
+     * @param array $columns Array of column names
+     * @param array $rows    Array of arrays, where each sub-array contains the values for a row
+     * @return int           Number of affected rows
+     */
+    public function bulkInsert(array $columns, array $rows): int
+    {
+        if (empty($rows)) {
+            return 0;
+        }
+
+        $placeholders = [];
+        $params       = [];
+
+        foreach ($rows as $rowIndex => $rowValues) {
+            $rowPlaceholders = [];
+            foreach (array_values($rowValues) as $colIndex => $val) {
+                $paramName = ":p_{$rowIndex}_{$colIndex}";
+                $rowPlaceholders[] = $paramName;
+                $params[$paramName] = $val;
+            }
+            $placeholders[] = '(' . implode(', ', $rowPlaceholders) . ')';
+        }
+
+        $sql = sprintf(
+            'INSERT INTO `%s` (%s) VALUES %s',
+            $this->table,
+            implode(', ', array_map(fn($c) => "`{$c}`", $columns)),
+            implode(', ', $placeholders)
+        );
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->rowCount();
+    }
+
+    /**
      * Update rows matching a WHERE condition.
      *
      * @param array  $data        Columns to update
@@ -184,9 +220,7 @@ class Model
         return $stmt->fetchColumn() !== false;
     }
 
-    // ─────────────────────────────────────────────────────────
     // RAW QUERY (for complex JOINs etc.)
-    // ─────────────────────────────────────────────────────────
 
     /**
      * Execute a raw prepared query and return all results.
@@ -231,12 +265,27 @@ class Model
         $stmt->execute($params);
         return $stmt->rowCount();
     }
-
-    // ─────────────────────────────────────────────────────────
-    // TRANSACTION HELPERS
-    // ─────────────────────────────────────────────────────────
-
+    /**
+     * TRANSACTION HELPERS
+     */
     public function beginTransaction(): void  { $this->db->beginTransaction(); }
     public function commit(): void            { $this->db->commit(); }
     public function rollback(): void          { $this->db->rollBack(); }
+
+    /** Check if a column exists on this model's table (cached per request). */
+    public function hasColumn(string $column): bool
+    {
+        static $cache = [];
+        $key = $this->table . '.' . $column;
+        if (isset($cache[$key])) {
+            return $cache[$key];
+        }
+        $stmt = $this->db->prepare(
+            'SELECT COUNT(*) FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table AND COLUMN_NAME = :col'
+        );
+        $stmt->execute([':table' => $this->table, ':col' => $column]);
+        $cache[$key] = (int) $stmt->fetchColumn() > 0;
+        return $cache[$key];
+    }
 }

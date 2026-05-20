@@ -41,6 +41,7 @@ $availableRooms = $availableRooms ?? [];
 <!-- Filters -->
 <div class="card" style="margin-bottom:16px;padding:14px 20px;">
   <form method="GET" action="<?= Router::url('landlord/tenants') ?>" class="filter-bar" style="margin-bottom:0;">
+    <input type="hidden" name="url" value="landlord/tenants">
     <select name="status" class="form-select">
       <option value="">All Statuses</option>
       <option value="pending" <?= ($filters['status'] ?? '') === 'pending' ? 'selected' : '' ?>>Pending</option>
@@ -50,8 +51,8 @@ $availableRooms = $availableRooms ?? [];
       <option value="moved_out" <?= ($filters['status'] ?? '') === 'moved_out' ? 'selected' : '' ?>>Moved Out</option>
     </select>
     <input type="text" name="search" class="form-input" placeholder="Search name or email..." value="<?= htmlspecialchars($filters['search'] ?? '') ?>">
-    <button type="submit" class="btn btn-primary btn-sm">Filter</button>
-    <a href="<?= Router::url('landlord/tenants') ?>" class="btn btn-secondary btn-sm">Clear</a>
+    <button type="submit" class="btn btn-outline btn-sm">Filter</button>
+    <a href="<?= Router::url('landlord/tenants') ?>" class="btn btn-ghost btn-sm">Clear</a>
   </form>
 </div>
 
@@ -138,7 +139,9 @@ $availableRooms = $availableRooms ?? [];
       <span class="modal-title">Approve Tenant</span>
       <button class="modal-close" onclick="closeModal('approveModal')">&times;</button>
     </div>
-    <form action="<?= Router::url('landlord/approve-tenant') ?>" method="POST">
+    <form action="<?= Router::url('landlord/approve-tenant') ?>" method="POST"
+          data-confirm="Approve this tenant and assign the selected room?"
+          data-action="Approve tenant">
       <input type="hidden" name="tenant_id" id="approveTenantId">
       <div class="modal-body">
         <p style="margin:0 0 16px;color:var(--gray-600);">You are about to approve <strong id="approveTenantName"></strong>.</p>
@@ -168,7 +171,9 @@ $availableRooms = $availableRooms ?? [];
       <span class="modal-title">Reject Tenant</span>
       <button class="modal-close" onclick="closeModal('rejectModal')">&times;</button>
     </div>
-    <form action="<?= Router::url('landlord/reject-tenant') ?>" method="POST">
+    <form action="<?= Router::url('landlord/reject-tenant') ?>" method="POST"
+          data-confirm="Reject this tenant application? This cannot be undone."
+          data-action="Reject tenant" data-color="#dc2626" data-confirm-text="Yes, reject">
       <input type="hidden" name="tenant_id" id="rejectTenantId">
       <div class="modal-body">
         <div class="form-group" style="margin-bottom:0;">

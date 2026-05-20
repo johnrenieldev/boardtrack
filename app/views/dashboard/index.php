@@ -52,10 +52,11 @@
 
     <!-- Logout -->
     <a href="<?= BASE_URL ?>/index.php?url=auth/logout"
-       class="flex items-center gap-1.5 text-sm font-semibold
+       class="confirm-logout flex items-center gap-1.5 text-sm font-semibold
               text-slate-500 hover:text-red-500
               transition-colors duration-150 px-2 py-1 rounded-lg
               hover:bg-red-50"
+       data-message="Are you sure you want to log out?"
        title="Logout">
       <i class="fa-solid fa-right-from-bracket"></i>
       <span class="hidden sm:inline">Logout</span>
@@ -63,7 +64,6 @@
 
   </div>
 </nav>
-
 
 <!-- ── MAIN CONTENT ───────────────────────────────────────────── -->
 <main class="max-w-5xl mx-auto px-6 py-14">
@@ -144,7 +144,6 @@
         ['fa-money-check-dollar',  'bg-slate-100 text-slate-600',   'Payments',      'Verify uploaded payment proof screenshots.'],
         ['fa-circle-exclamation',  'bg-slate-100 text-slate-600',   'Complaints',    'Manage and respond to tenant complaints.'],
         ['fa-bullhorn',            'bg-slate-100 text-slate-600',   'Announcements', 'Post notices to all active tenants.'],
-        ['fa-scroll',              'bg-slate-100 text-slate-600',   'Audit Log',     'Full read-only trail of all system actions.'],
       ];
     ?>
   <?php else: ?>
@@ -185,7 +184,6 @@
     <?php endforeach; ?>
   </div>
 
-
   <!-- Auth debug strip (remove in production) -->
   <?php if (defined('APP_ENV') && APP_ENV === 'development'): ?>
     <div class="mt-12 bg-slate-900 text-green-400 font-mono text-xs
@@ -201,6 +199,8 @@
 
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= Router::asset('js/confirm-actions.js') ?>"></script>
 <?php require APP_PATH . '/views/layouts/footer.php'; ?>
 ```
 
@@ -217,7 +217,6 @@
        ↓
   redirect → auth/login   (with flash_success message)
 
-
 ── LOGIN ─────────────────────────────────────────────────────────
 
   login.php  (form action → auth/loginPost)
@@ -229,7 +228,6 @@
        ↓
   redirect → dashboard/index
 
-
 ── DASHBOARD ─────────────────────────────────────────────────────
 
   DashboardController::index()
@@ -239,7 +237,6 @@
   view('dashboard/index', ['user' => $user, 'role' => $role])
        ↓
   header.php + index.php (view) + footer.php rendered
-
 
 ── LOGOUT ────────────────────────────────────────────────────────
 

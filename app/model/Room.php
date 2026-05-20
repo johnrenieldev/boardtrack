@@ -51,6 +51,24 @@ class Room extends Model
         return $stmt->fetch() ?: [];
     }
 
+    /**
+     * Rooms with at least one active tenant (for billing)
+     */
+    public function getBillableRooms(): array
+    {
+        $sql = "SELECT r.*,
+                       COUNT(t.id) AS occupant_count,
+                       GROUP_CONCAT(u.name ORDER BY u.name SEPARATOR ', ') AS tenant_names
+                FROM {$this->table} r
+                INNER JOIN tenants t ON t.room_id = r.id
+                INNER JOIN users u ON t.user_id = u.id AND u.status = 'active'
+                GROUP BY r.id
+                ORDER BY r.floor ASC, r.room_number ASC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
     public function updateOccupancy(int $roomId): void
     {
         $sql  = "SELECT r.max_occupants, COUNT(t.id) AS cnt

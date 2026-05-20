@@ -20,7 +20,7 @@ unset($_SESSION['form_old']);
     <div>
       <h2 class="text-white font-bold text-xl leading-snug mb-4">Registration Steps</h2>
       <?php
-        $steps = ['Fill in your details','Upload government ID','Complete personality quiz','Wait for landlord approval','Get room assigned'];
+        $steps = ['Fill in your details','Add guardian/emergency contact','Upload government ID','Complete personality quiz','Wait for landlord approval'];
         foreach ($steps as $i => $s):
       ?>
       <div class="flex items-start gap-3 mb-3">
@@ -99,6 +99,38 @@ unset($_SESSION['form_old']);
             </button>
           </div>
           <p class="text-xs mt-1" id="matchMsg"></p>
+        </div>
+
+        <!-- Guardian / emergency contact -->
+        <div class="mb-4 p-4 border border-amber-200 bg-amber-50 rounded-lg">
+          <h2 class="text-sm font-bold text-gray-900 mb-1">
+            <i class="fa-solid fa-user-shield text-amber-600"></i> Guardian / Parent / Emergency Contact
+          </h2>
+          <p class="text-xs text-gray-600 mb-4">
+            Someone we can reach if you are in danger, and who may be notified about important account and payment updates.
+          </p>
+
+          <div class="mb-3">
+            <label class="auth-label" for="guardian_name">Contact Full Name <span class="text-red-500">*</span></label>
+            <input class="auth-input" type="text" id="guardian_name" name="guardian_name"
+                   value="<?= htmlspecialchars($old['guardian_name'] ?? '') ?>"
+                   placeholder="e.g. Maria dela Cruz (parent/guardian)" required minlength="2">
+          </div>
+
+          <div class="mb-3">
+            <label class="auth-label" for="guardian_email">Contact Email <span class="text-red-500">*</span></label>
+            <input class="auth-input" type="email" id="guardian_email" name="guardian_email"
+                   value="<?= htmlspecialchars($old['guardian_email'] ?? '') ?>"
+                   placeholder="parent@example.com" required>
+          </div>
+
+          <div>
+            <label class="auth-label" for="guardian_purpose">Why should we contact this person? <span class="text-red-500">*</span></label>
+            <textarea class="auth-input" id="guardian_purpose" name="guardian_purpose" rows="3" required
+                      minlength="10" maxlength="500"
+                      placeholder="e.g. My mother — contact in emergencies; notify her when my rent payment is confirmed."><?= htmlspecialchars($old['guardian_purpose'] ?? '') ?></textarea>
+            <p class="text-xs text-gray-500 mt-1">Minimum 10 characters. This is shown to the landlord and used for payment confirmation emails.</p>
+          </div>
         </div>
 
         <!-- Room preference -->

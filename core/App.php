@@ -29,9 +29,7 @@ class App
         $this->dispatch();
     }
 
-    // ─────────────────────────────────────────────────────────
     // URL PARSING
-    // ─────────────────────────────────────────────────────────
 
     /**
      * Reads ?url= query string, sanitizes, and splits into parts.
@@ -67,9 +65,7 @@ class App
         }
     }
 
-    // ─────────────────────────────────────────────────────────
     // CONTROLLER LOADING
-    // ─────────────────────────────────────────────────────────
 
     /**
      * Resolves the controller file path, requires it,
@@ -96,9 +92,7 @@ class App
         $this->load404();
     }
 
-    // ─────────────────────────────────────────────────────────
     // DISPATCHING
-    // ─────────────────────────────────────────────────────────
 
     /**
      * Calls the requested method on the loaded controller,
@@ -118,9 +112,7 @@ class App
         );
     }
 
-    // ─────────────────────────────────────────────────────────
     // HELPERS
-    // ─────────────────────────────────────────────────────────
 
     /**
      * Converts a URL segment like "auth-login" or "authlogin"

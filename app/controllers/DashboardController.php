@@ -30,8 +30,7 @@ class DashboardController extends Controller
             $this->redirect('tenant/dashboard');
         } else {
             // Invalid or missing role — force logout
-            $this->flash('error', 'Invalid session. Please log in again.');
-            $this->redirect('auth/logout');
+            $this->invalidSession('Invalid session. Please log in again.');
         }
     }
 }

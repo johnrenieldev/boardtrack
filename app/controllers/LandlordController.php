@@ -2,12 +2,6 @@
 /**
  * BoardTrack — Landlord Controller
  * app/controllers/LandlordController.php
- *
- * FIXED:
- *  - Added waitingList() method (sidebar link target)
- *  - Added auditLog() method (sidebar link target)
- *  - Fixed stats count() calls — use raw WHERE strings
- *  - All placeholder die() methods replaced
  */
 
 class LandlordController extends Controller
@@ -37,8 +31,9 @@ class LandlordController extends Controller
         $this->waitingListModel  = $this->model('WaitingList');
         $this->notificationModel = $this->model('Notification');
     }
-
-    // ── Dashboard ──────────────────────────────────────────────
+    /**
+     * Dashboard
+     */
     public function dashboard(): void
     {
         $user         = $this->userModel->findById((int)$_SESSION['user_id']);
@@ -46,17 +41,17 @@ class LandlordController extends Controller
         $paymentStats = $this->paymentModel->getStatistics();
 
         $stats = [
-            'pendingCount'    => $this->userModel->countByWhere("role = 'tenant' AND status = 'pending'"),
-            'activeCount'     => $this->userModel->countByWhere("role = 'tenant' AND status = 'active'"),
-            'waitingCount'    => $this->userModel->countByWhere("role = 'tenant' AND status = 'waiting_list'"),
-            'rejectedCount'   => $this->userModel->countByWhere("role = 'tenant' AND status = 'rejected'"),
-            'totalRooms'      => $roomStats['total_rooms']    ?? 0,
-            'availableRooms'  => $roomStats['available']      ?? 0,
-            'maintenanceRooms'=> $roomStats['maintenance']    ?? 0,
-            'unpaidBills'     => $this->billModel->countByWhere("status = 'unpaid'"),
-            'pendingPayments' => $paymentStats['pending']     ?? 0,
-            'approvedPayments'=> $paymentStats['approved']    ?? 0,
-            'openComplaints'  => $this->complaintModel->getPendingCount(),
+            'pendingCount'     => $this->userModel->countByWhere("role = 'tenant' AND status = 'pending'"),
+            'activeCount'      => $this->userModel->countByWhere("role = 'tenant' AND status = 'active'"),
+            'waitingCount'     => $this->userModel->countByWhere("role = 'tenant' AND status = 'waiting_list'"),
+            'rejectedCount'    => $this->userModel->countByWhere("role = 'tenant' AND status = 'rejected'"),
+            'totalRooms'       => $roomStats['total_rooms']  ?? 0,
+            'availableRooms'   => $roomStats['available']    ?? 0,
+            'maintenanceRooms' => $roomStats['maintenance']  ?? 0,
+            'unpaidBills'      => $this->billModel->countByWhere("status = 'unpaid'"),
+            'pendingPayments'  => $paymentStats['pending']   ?? 0,
+            'approvedPayments' => $paymentStats['approved']  ?? 0,
+            'openComplaints'   => $this->complaintModel->getPendingCount(),
         ];
 
         $this->view('landlord/dashboard', [
@@ -68,8 +63,9 @@ class LandlordController extends Controller
             'pendingPayments'     => $this->paymentModel->getPending(),
         ], 'landlord');
     }
-
-    // ── Tenants ────────────────────────────────────────────────
+    /**
+     * Tenants
+     */
     public function tenants(): void
     {
         $filters = [
@@ -77,7 +73,7 @@ class LandlordController extends Controller
             'search'    => $_GET['search']    ?? null,
             'room_type' => $_GET['room_type'] ?? null,
         ];
-        $tenants   = $this->tenantModel->getAllWithFilters(array_filter($filters));
+        $tenants        = $this->tenantModel->getAllWithFilters(array_filter($filters));
         $availableRooms = $this->roomModel->getAvailable();
 
         $this->view('landlord/tenants', [
@@ -110,54 +106,125 @@ class LandlordController extends Controller
     public function approveTenant(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') { $this->redirect('landlord/tenants'); }
+
         $tenantId = (int)($_POST['tenant_id'] ?? 0);
         $roomId   = !empty($_POST['room_id']) ? (int)$_POST['room_id'] : null;
         $tenant   = $this->tenantModel->find($tenantId);
-        if (!$tenant) { $this->flash('error', 'Tenant not found.'); $this->redirect('landlord/tenants'); }
 
-        $newStatus = $roomId ? 'active' : 'waiting_list';
-        $this->userModel->update(['status' => $newStatus], ['id' => $tenant['user_id']]);
-
-        if ($roomId) {
-            $this->tenantModel->assignRoom($tenantId, $roomId, date('Y-m-d'));
-            $this->roomModel->updateOccupancy($roomId);
-            $this->notificationModel->createNotification(
-                $tenant['user_id'], 'room', 'Room Assigned',
-                'You have been approved and assigned to a room.', 'tenant/dashboard'
-            );
-            $this->auditLogModel->log($_SESSION['user_id'], 'tenant_approved_room',
-                'tenant', $tenantId, ['status'=>'pending'], ['status'=>'active','room_id'=>$roomId],
-                'Tenant approved and assigned room');
-            $this->flash('success', 'Tenant approved and room assigned.');
-        } else {
-            $this->waitingListModel->addTenant($tenantId, $tenant['room_type_preference'] ?? 'shared');
-            $this->notificationModel->createNotification(
-                $tenant['user_id'], 'room', 'Account Approved',
-                'Your account is approved. You have been placed on the waiting list.', 'tenant/dashboard'
-            );
-            $this->auditLogModel->log($_SESSION['user_id'], 'tenant_approved_waiting',
-                'tenant', $tenantId, ['status'=>'pending'], ['status'=>'waiting_list'],
-                'Tenant approved, added to waiting list');
-            $this->flash('success', 'Tenant approved and added to waiting list.');
+        if (!$tenant) {
+            $this->flash('error', 'Tenant not found.');
+            $this->redirect('landlord/tenants');
         }
+
+        // If room is selected, check compatibility for shared rooms
+        if ($roomId) {
+            $room = $this->roomModel->find($roomId);
+            if ($room && $room['room_type'] === 'shared') {
+                $compatibilityScore = $this->calculateRoomCompatibility($tenantId, $roomId);
+                if ($compatibilityScore < 50) {
+                    $this->flash('warning', "Warning: Low compatibility score ({$compatibilityScore}%) with current roommates. Consider assigning to a different room.");
+                }
+            }
+        }
+
+        try {
+            $this->userModel->beginTransaction();
+
+            $newStatus = $roomId ? 'active' : 'waiting_list';
+            $this->userModel->update(['status' => $newStatus], ['id' => $tenant['user_id']]);
+
+            if ($roomId) {
+                $this->tenantModel->assignRoom($tenantId, $roomId, date('Y-m-d'));
+                $this->roomModel->updateOccupancy($roomId);
+                
+                // Calculate compatibility for notification
+                $compatibilityMsg = '';
+                if ($room && $room['room_type'] === 'shared') {
+                    $compatibilityScore = $this->calculateRoomCompatibility($tenantId, $roomId);
+                    $compatibilityMsg = " Roommate compatibility: {$compatibilityScore}%";
+                }
+                
+                $this->notificationModel->createNotification(
+                    $tenant['user_id'], 'room', 'Room Assigned',
+                    'You have been approved and assigned to a room.' . $compatibilityMsg, 'tenant/dashboard'
+                );
+                $this->auditLogModel->log(
+                    $_SESSION['user_id'], 'tenant_approved_room', 'tenant', $tenantId,
+                    ['status' => 'pending'], ['status' => 'active', 'room_id' => $roomId],
+                    'Tenant approved and assigned room'
+                );
+                $this->flash('success', 'Tenant approved and room assigned.');
+            } else {
+                $this->waitingListModel->addTenant($tenantId, $tenant['room_type_preference'] ?? 'shared');
+                $this->notificationModel->createNotification(
+                    $tenant['user_id'], 'room', 'Account Approved',
+                    'Your account is approved. You have been placed on the waiting list.', 'tenant/dashboard'
+                );
+                $this->auditLogModel->log(
+                    $_SESSION['user_id'], 'tenant_approved_waiting', 'tenant', $tenantId,
+                    ['status' => 'pending'], ['status' => 'waiting_list'],
+                    'Tenant approved, added to waiting list'
+                );
+                $this->flash('success', 'Tenant approved and added to waiting list.');
+            }
+            $this->userModel->commit();
+        } catch (Exception $e) {
+            $this->userModel->rollback();
+            $this->flash('error', 'An error occurred while approving the tenant.');
+            $this->redirect('landlord/tenants');
+        }
+
+        require_once ROOT_PATH . '/app/helpers/BoardtrackMail.php';
+
+        $tenantRow    = $this->tenantModel->find($tenantId) ?? $tenant;
+        $approvedUser = $this->userModel->find((int) $tenant['user_id']);
+        $statusMsg    = $roomId
+            ? 'You have been approved and assigned to a room. You can view your room details in your dashboard.'
+            : 'You have been approved and placed on the waiting list. We will notify you when a room is available.';
+
+        if ($approvedUser && !empty($approvedUser['email'])) {
+            BoardtrackMail::tenantApproved($approvedUser['email'], $approvedUser['name'], $statusMsg);
+        }
+
+        if (!empty($tenantRow['guardian_email'])) {
+            BoardtrackMail::guardianTenantApproved(
+                $tenantRow['guardian_email'],
+                $tenantRow['guardian_name'] ?? 'Guardian',
+                $approvedUser['name'] ?? 'Tenant',
+                $tenantRow['guardian_purpose'] ?? 'Emergency contact on file.'
+            );
+        }
+
         $this->redirect('landlord/tenants');
     }
 
     public function rejectTenant(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') { $this->redirect('landlord/tenants'); }
+
         $tenantId = (int)($_POST['tenant_id'] ?? 0);
         $reason   = trim($_POST['reason'] ?? '');
-        if (empty($reason)) { $this->flash('error', 'Rejection reason is required.'); $this->redirect('landlord/tenants'); }
+
+        if (empty($reason)) {
+            $this->flash('error', 'Rejection reason is required.');
+            $this->redirect('landlord/tenants');
+        }
+
         $tenant = $this->tenantModel->find($tenantId);
-        if (!$tenant) { $this->flash('error', 'Tenant not found.'); $this->redirect('landlord/tenants'); }
+        if (!$tenant) {
+            $this->flash('error', 'Tenant not found.');
+            $this->redirect('landlord/tenants');
+        }
+
         $this->userModel->update(['status' => 'rejected'], ['id' => $tenant['user_id']]);
         $this->notificationModel->createNotification(
             $tenant['user_id'], 'system', 'Application Rejected',
             "Your registration was rejected. Reason: {$reason}", 'tenant/dashboard'
         );
-        $this->auditLogModel->log($_SESSION['user_id'], 'tenant_rejected',
-            'tenant', $tenantId, ['status'=>'pending'], ['status'=>'rejected'], $reason);
+        $this->auditLogModel->log(
+            $_SESSION['user_id'], 'tenant_rejected', 'tenant', $tenantId,
+            ['status' => 'pending'], ['status' => 'rejected'], $reason
+        );
         $this->flash('success', 'Tenant registration rejected.');
         $this->redirect('landlord/tenants');
     }
@@ -165,34 +232,45 @@ class LandlordController extends Controller
     public function moveOutTenant(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') { $this->redirect('landlord/tenants'); }
+
         $tenantId = (int)($_POST['tenant_id'] ?? 0);
-        $tenant = $this->tenantModel->find($tenantId);
-        if (!$tenant) { $this->flash('error', 'Tenant not found.'); $this->redirect('landlord/tenants'); }
+        $tenant   = $this->tenantModel->find($tenantId);
+
+        if (!$tenant) {
+            $this->flash('error', 'Tenant not found.');
+            $this->redirect('landlord/tenants');
+        }
+
         $oldRoomId = $tenant['room_id'] ?? null;
         $this->tenantModel->removeFromRoom($tenantId, date('Y-m-d'));
         $this->userModel->update(['status' => 'moved_out'], ['id' => $tenant['user_id']]);
+
         if ($oldRoomId) {
             $this->roomModel->updateOccupancy($oldRoomId);
         }
+
         $this->notificationModel->createNotification(
             $tenant['user_id'], 'room', 'Moved Out',
             'You have been marked as moved out.', 'tenant/dashboard'
         );
-        $this->auditLogModel->log($_SESSION['user_id'], 'tenant_moved_out',
-            'tenant', $tenantId, ['status' => 'active', 'room_id' => $oldRoomId],
-            ['status' => 'moved_out', 'room_id' => null], 'Tenant moved out');
+        $this->auditLogModel->log(
+            $_SESSION['user_id'], 'tenant_moved_out', 'tenant', $tenantId,
+            ['status' => 'active', 'room_id' => $oldRoomId],
+            ['status' => 'moved_out', 'room_id' => null], 'Tenant moved out'
+        );
         $this->flash('success', 'Tenant marked as moved out.');
         $this->redirect('landlord/tenants');
     }
-
-    // ── Rooms ──────────────────────────────────────────────────
+    /**
+     * Rooms
+     */
     public function rooms(): void
     {
-        $rooms = $this->roomModel->getAllWithOccupancy();
+        $rooms      = $this->roomModel->getAllWithOccupancy();
         $statistics = $this->roomModel->getStatistics();
         $this->view('landlord/rooms', [
-            'pageTitle' => 'Rooms — BoardTrack',
-            'rooms'     => $rooms,
+            'pageTitle'  => 'Rooms — BoardTrack',
+            'rooms'      => $rooms,
             'statistics' => $statistics,
         ], 'landlord');
     }
@@ -204,9 +282,8 @@ class LandlordController extends Controller
             $this->flash('error', 'Room not found.');
             $this->redirect('landlord/rooms');
         }
-        // Get occupants for this room
-        $occupants = $this->tenantModel->getByRoomId($id);
-        $room['occupants'] = $occupants;
+        $occupants             = $this->tenantModel->getByRoomId($id);
+        $room['occupants']     = $occupants;
         $room['actual_occupants'] = count($occupants);
         $this->view('landlord/roomView', [
             'pageTitle' => 'Room ' . $room['room_number'] . ' — BoardTrack',
@@ -217,18 +294,21 @@ class LandlordController extends Controller
     public function addRoom(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') { $this->redirect('landlord/rooms'); }
+
         $data = [
-            'room_number'   => trim($_POST['room_number']   ?? ''),
-            'floor'         => (int)($_POST['floor']        ?? 1),
-            'room_type'     => $_POST['room_type']          ?? 'single',
-            'max_occupants' => (int)($_POST['max_occupants']?? 1),
+            'room_number'   => trim($_POST['room_number']    ?? ''),
+            'floor'         => (int)($_POST['floor']         ?? 1),
+            'room_type'     => $_POST['room_type']           ?? 'single',
+            'max_occupants' => (int)($_POST['max_occupants'] ?? 1),
             'monthly_rent'  => (float)($_POST['monthly_rent']?? 0),
             'status'        => 'available',
-            'description'   => trim($_POST['description']   ?? ''),
+            'description'   => trim($_POST['description']    ?? ''),
         ];
+
         if (empty($data['room_number'])) { $this->flash('error', 'Room number is required.'); $this->redirect('landlord/rooms'); }
-        if ($data['max_occupants'] < 1) { $this->flash('error', 'Max occupants must be at least 1.'); $this->redirect('landlord/rooms'); }
-        if ($data['monthly_rent'] <= 0) { $this->flash('error', 'Monthly rent must be greater than zero.'); $this->redirect('landlord/rooms'); }
+        if ($data['max_occupants'] < 1)  { $this->flash('error', 'Max occupants must be at least 1.'); $this->redirect('landlord/rooms'); }
+        if ($data['monthly_rent'] <= 0)  { $this->flash('error', 'Monthly rent must be greater than zero.'); $this->redirect('landlord/rooms'); }
+
         $this->roomModel->insert($data);
         $this->auditLogModel->log($_SESSION['user_id'], 'room_created', 'room', 0, null, $data, "Room {$data['room_number']} created");
         $this->flash('success', "Room {$data['room_number']} added successfully.");
@@ -238,36 +318,44 @@ class LandlordController extends Controller
     public function editRoom(int $id): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') { $this->redirect('landlord/rooms'); }
+
         $room = $this->roomModel->find($id);
         if (!$room) { $this->flash('error', 'Room not found.'); $this->redirect('landlord/rooms'); }
+
         $data = [
-            'floor'         => (int)($_POST['floor']         ?? $room['floor']),
-            'room_type'     => $_POST['room_type']            ?? $room['room_type'],
-            'max_occupants' => (int)($_POST['max_occupants']  ?? $room['max_occupants']),
-            'monthly_rent'  => (float)($_POST['monthly_rent'] ?? $room['monthly_rent']),
-            'status'        => $_POST['status']               ?? $room['status'],
-            'description'   => trim($_POST['description']     ?? ''),
+            'floor'         => (int)($_POST['floor']          ?? $room['floor']),
+            'room_type'     => $_POST['room_type']             ?? $room['room_type'],
+            'max_occupants' => (int)($_POST['max_occupants']   ?? $room['max_occupants']),
+            'monthly_rent'  => (float)($_POST['monthly_rent']  ?? $room['monthly_rent']),
+            'status'        => $_POST['status']                ?? $room['status'],
+            'description'   => trim($_POST['description']      ?? ''),
         ];
+
         if ($data['max_occupants'] < 1) { $this->flash('error', 'Max occupants must be at least 1.'); $this->redirect('landlord/rooms'); }
         if ($data['monthly_rent'] <= 0) { $this->flash('error', 'Monthly rent must be greater than zero.'); $this->redirect('landlord/rooms'); }
+
         $this->roomModel->update($data, ['id' => $id]);
         $this->auditLogModel->log($_SESSION['user_id'], 'room_updated', 'room', $id, $room, $data, "Room {$room['room_number']} updated");
         $this->flash('success', 'Room updated successfully.');
         $this->redirect('landlord/rooms');
     }
-
-    // ── Billing ────────────────────────────────────────────────
+    /**
+     * Billing
+     */
     public function bills(): void
     {
-        $filters = ['status' => $_GET['status'] ?? null, 'search' => $_GET['search'] ?? null];
-        $bills   = $this->billModel->getAllWithTenants(array_filter($filters));
-        $statistics   = $this->billModel->getStatistics();
+        $filters       = ['status' => $_GET['status'] ?? null, 'search' => $_GET['search'] ?? null];
+        $bills         = $this->billModel->getAllForLandlord(array_filter($filters));
+        $statistics    = $this->billModel->getStatistics();
+        $billableRooms = $this->roomModel->getBillableRooms();
         $activeTenants = $this->tenantModel->getActiveTenants();
+
         $this->view('landlord/bills', [
             'pageTitle'     => 'Billing — BoardTrack',
             'bills'         => $bills,
-            'statistics'         => $statistics,
+            'statistics'    => $statistics,
             'filters'       => $filters,
+            'billableRooms' => $billableRooms,
             'activeTenants' => $activeTenants,
         ], 'landlord');
     }
@@ -275,65 +363,196 @@ class LandlordController extends Controller
     public function createBill(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') { $this->redirect('landlord/bills'); }
-        $data = [
-            'tenant_id'            => (int)($_POST['tenant_id']  ?? 0),
-            'bill_name'            => trim($_POST['bill_name']    ?? ''),
-            'billing_period_start' => $_POST['period_start']     ?? date('Y-m-01'),
-            'billing_period_end'   => $_POST['period_end']       ?? date('Y-m-t'),
-            'amount'               => (float)($_POST['amount']   ?? 0),
-            'due_date'             => $_POST['due_date']         ?? '',
-            'status'               => 'unpaid',
-            'created_by'           => (int)$_SESSION['user_id'],
-            'notes'                => trim($_POST['notes']        ?? ''),
-        ];
-        if (!$data['tenant_id'] || empty($data['bill_name']) || $data['amount'] <= 0 || empty($data['due_date'])) {
-            $this->flash('error', 'All required fields must be filled in and amount must be greater than zero.');
+
+        $billingType = ($_POST['billing_type'] ?? 'room_based') === 'individual' ? 'individual' : 'room_based';
+        $billName    = trim($_POST['bill_name'] ?? '');
+        $periodStart = $_POST['period_start'] ?? date('Y-m-01');
+        $periodEnd   = $_POST['period_end'] ?? date('Y-m-t');
+        $amount      = (float) ($_POST['amount'] ?? 0);
+        $dueDate     = $_POST['due_date'] ?? '';
+        $notes       = trim($_POST['notes'] ?? '');
+        $chargeCategory = in_array($_POST['charge_category'] ?? 'rent', ['rent', 'utility', 'maintenance', 'penalty', 'other'], true)
+            ? $_POST['charge_category'] : 'rent';
+
+        if (empty($billName) || $amount <= 0 || empty($dueDate)) {
+            $this->flash('error', 'Fill in all required fields and enter a valid amount.');
             $this->redirect('landlord/bills');
         }
-        if ($data['due_date'] < date('Y-m-d')) {
+        if ($dueDate < date('Y-m-d')) {
             $this->flash('error', 'Due date cannot be in the past.');
             $this->redirect('landlord/bills');
         }
-        if ($data['billing_period_start'] >= $data['billing_period_end']) {
+        if ($periodStart >= $periodEnd) {
             $this->flash('error', 'Billing period start must be before end date.');
             $this->redirect('landlord/bills');
         }
-        $billId = $this->billModel->insert($data);
-        $tenant = $this->tenantModel->find($data['tenant_id']);
-        if ($tenant) {
-            $this->notificationModel->createNotification(
-                $tenant['user_id'], 'billing', 'New Bill Created',
-                "A new bill \"{$data['bill_name']}\" of ₱" . number_format($data['amount'],2) . " has been issued.",
-                'tenant/bills'
+
+        if ($billingType === 'individual') {
+            $created = $this->createIndividualBills($billName, $periodStart, $periodEnd, $amount, $dueDate, $notes, $chargeCategory);
+            if ($created === 0) {
+                $this->flash('error', 'No bills created. Select one or more active tenants.');
+                $this->redirect('landlord/bills');
+            }
+            $msg = $created === 1
+                ? 'Individual bill created and tenant notified.'
+                : "{$created} individual bills created and tenants notified.";
+        } else {
+            $created = $this->createRoomBills($billName, $periodStart, $periodEnd, $amount, $dueDate, $notes, $chargeCategory);
+            if ($created === 0) {
+                $this->flash('error', 'No bills created. Select rooms that have active tenants.');
+                $this->redirect('landlord/bills');
+            }
+            $msg = $created === 1
+                ? 'Room bill created and occupants notified.'
+                : "{$created} room bills created and occupants notified.";
+        }
+
+        $this->flash('success', $msg);
+        $this->redirect('landlord/bills');
+    }
+
+    private function createRoomBills(
+        string $billName, string $periodStart, string $periodEnd,
+        float $amount, string $dueDate, string $notes, string $chargeCategory
+    ): int {
+        $roomIds = [];
+        if (!empty($_POST['room_ids']) && is_array($_POST['room_ids'])) {
+            $roomIds = array_map('intval', $_POST['room_ids']);
+        } elseif (!empty($_POST['room_id'])) {
+            $roomIds = [(int) $_POST['room_id']];
+        }
+        $roomIds = array_values(array_filter($roomIds));
+        if (empty($roomIds)) {
+            return 0;
+        }
+
+        $created = 0;
+        foreach ($roomIds as $roomId) {
+            $room = $this->roomModel->find($roomId);
+            if (!$room) {
+                continue;
+            }
+            $tenants = $this->tenantModel->getByRoomId($roomId);
+            if (empty($tenants)) {
+                continue;
+            }
+
+            $data = [
+                'room_id'              => $roomId,
+                'tenant_id'            => null,
+                'billing_type'         => 'room_based',
+                'charge_category'      => $chargeCategory,
+                'bill_name'            => $billName,
+                'billing_period_start' => $periodStart,
+                'billing_period_end'   => $periodEnd,
+                'amount'               => $amount,
+                'due_date'             => $dueDate,
+                'status'               => 'unpaid',
+                'created_by'           => (int) $_SESSION['user_id'],
+                'notes'                => $notes ?: null,
+            ];
+
+            $billId = $this->billModel->insert($data);
+            $created++;
+
+            foreach ($tenants as $tenant) {
+                if (($tenant['status'] ?? '') !== 'active') {
+                    continue;
+                }
+                $this->notificationModel->createNotification(
+                    $tenant['user_id'], 'billing', 'New Bill for Room ' . ($room['room_number'] ?? ''),
+                    "A new room bill \"{$billName}\" of ₱" . number_format($amount, 2) . " has been issued.",
+                    'tenant/bills'
+                );
+            }
+            $this->auditLogModel->log(
+                $_SESSION['user_id'], 'bill_created', 'bill', $billId, null, $data,
+                "Room bill for {$room['room_number']}: {$billName}"
             );
         }
-        $this->auditLogModel->log($_SESSION['user_id'], 'bill_created', 'bill', $billId, null, $data, "Bill created: {$data['bill_name']}");
-        $this->flash('success', 'Bill created and tenant notified.');
-        $this->redirect('landlord/bills');
+        return $created;
+    }
+
+    private function createIndividualBills(
+        string $billName, string $periodStart, string $periodEnd,
+        float $amount, string $dueDate, string $notes, string $chargeCategory
+    ): int {
+        $tenantIds = [];
+        if (!empty($_POST['tenant_ids']) && is_array($_POST['tenant_ids'])) {
+            $tenantIds = array_map('intval', $_POST['tenant_ids']);
+        } elseif (!empty($_POST['tenant_id'])) {
+            $tenantIds = [(int) $_POST['tenant_id']];
+        }
+        $tenantIds = array_values(array_filter($tenantIds));
+        if (empty($tenantIds)) {
+            return 0;
+        }
+
+        $created = 0;
+        foreach ($tenantIds as $tenantId) {
+            $tenant = $this->tenantModel->find($tenantId);
+            if (!$tenant || ($tenant['user_status'] ?? '') !== 'active') {
+                continue;
+            }
+
+            $data = [
+                'room_id'              => $tenant['room_id'] ?? null,
+                'tenant_id'            => $tenantId,
+                'billing_type'         => 'individual',
+                'charge_category'      => $chargeCategory,
+                'bill_name'            => $billName,
+                'billing_period_start' => $periodStart,
+                'billing_period_end'   => $periodEnd,
+                'amount'               => $amount,
+                'due_date'             => $dueDate,
+                'status'               => 'unpaid',
+                'created_by'           => (int) $_SESSION['user_id'],
+                'notes'                => $notes ?: null,
+            ];
+
+            $billId = $this->billModel->insert($data);
+            $created++;
+
+            $this->notificationModel->createNotification(
+                (int) $tenant['user_id'], 'billing', 'New Bill Assigned',
+                "A new bill \"{$billName}\" of ₱" . number_format($amount, 2) . ' has been issued to you.',
+                'tenant/bills'
+            );
+            $this->auditLogModel->log(
+                $_SESSION['user_id'], 'bill_created', 'bill', $billId, null, $data,
+                "Individual bill for tenant #{$tenantId}: {$billName}"
+            );
+        }
+        return $created;
     }
 
     public function deleteBill(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') { $this->redirect('landlord/bills'); }
+
         $billId = (int)($_POST['bill_id'] ?? 0);
-        $bill = $this->billModel->find($billId);
+        $bill   = $this->billModel->find($billId);
+
         if (!$bill) { $this->flash('error', 'Bill not found.'); $this->redirect('landlord/bills'); }
+
         $this->billModel->delete($billId);
         $this->auditLogModel->log($_SESSION['user_id'], 'bill_deleted', 'bill', $billId, $bill, null, "Bill deleted: {$bill['bill_name']}");
         $this->flash('success', 'Bill deleted successfully.');
         $this->redirect('landlord/bills');
     }
-
-    // ── Payments ───────────────────────────────────────────────
+    /**
+     * Payments
+     */
     public function payments(): void
     {
-        $filters  = ['status' => $_GET['status'] ?? null];
-        $payments = $this->paymentModel->getAllWithDetails(array_filter($filters));
+        $filters    = ['status' => $_GET['status'] ?? null];
+        $payments   = $this->paymentModel->getAllWithDetails(array_filter($filters));
         $statistics = $this->paymentModel->getStatistics();
+
         $this->view('landlord/payments', [
-            'pageTitle' => 'Payments — BoardTrack',
-            'payments'  => $payments,
-            'filters'   => $filters,
+            'pageTitle'  => 'Payments — BoardTrack',
+            'payments'   => $payments,
+            'filters'    => $filters,
             'statistics' => $statistics,
         ], 'landlord');
     }
@@ -354,45 +573,177 @@ class LandlordController extends Controller
     public function approvePayment(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') { $this->redirect('landlord/payments'); }
+
+        require_once ROOT_PATH . '/app/helpers/BoardtrackMail.php';
+
         $paymentId = (int)($_POST['payment_id'] ?? 0);
         $payment   = $this->paymentModel->find($paymentId);
         if (!$payment) { $this->flash('error', 'Payment not found.'); $this->redirect('landlord/payments'); }
-        $this->paymentModel->update(['status'=>'approved','reviewed_by'=>(int)$_SESSION['user_id'],'reviewed_at'=>date('Y-m-d H:i:s')], ['id'=>$paymentId]);
-        $this->billModel->update(['status'=>'paid'], ['id'=>$payment['bill_id']]);
-        $tenant = $this->tenantModel->find($payment['tenant_id']);
-        if ($tenant) {
-            $this->notificationModel->createNotification($tenant['user_id'], 'billing', 'Payment Approved', 'Your payment has been verified and approved.', 'tenant/bills');
+        if ($payment['status'] !== 'pending') {
+            $this->flash('error', 'Payment has already been processed.');
+            $this->redirect('landlord/payments');
         }
-        $this->auditLogModel->log($_SESSION['user_id'],'payment_approved','payment',$paymentId,['status'=>'pending'],['status'=>'approved'],'Payment approved');
-        $this->flash('success', 'Payment approved and bill marked as paid.');
+
+        $paymentDetails = $this->paymentModel->getWithDetails($paymentId);
+        $bill           = $this->billModel->find((int) $payment['bill_id']);
+        $billName       = $bill['bill_name'] ?? ($paymentDetails['bill_name'] ?? 'Bill');
+        $amount         = (float) ($payment['amount_paid'] ?? $bill['amount'] ?? 0);
+        $methodLabel    = BoardtrackMail::paymentMethodLabel($payment['payment_method'] ?? null);
+        $isPartial      = (bool) ($payment['is_partial'] ?? false);
+
+        try {
+            $this->paymentModel->beginTransaction();
+            $this->paymentModel->update([
+                'status'      => 'approved',
+                'reviewed_by' => (int)$_SESSION['user_id'],
+                'reviewed_at' => date('Y-m-d H:i:s'),
+            ], ['id' => $paymentId]);
+
+            // Handle partial payments
+            if ($isPartial) {
+                // Update amount paid on bill
+                $this->billModel->updateAmountPaid((int) $payment['bill_id'], $amount);
+                
+                // Get payment progress
+                $progress = $this->billModel->getPaymentProgress((int) $payment['bill_id']);
+                
+                // Update bill status based on progress
+                if ($progress['percentage'] >= 100) {
+                    $this->billModel->update([
+                        'status'  => 'paid',
+                        'paid_at' => date('Y-m-d H:i:s'),
+                    ], ['id' => $payment['bill_id']]);
+                } else {
+                    $this->billModel->update(['status' => 'partial'], ['id' => $payment['bill_id']]);
+                }
+            } else {
+                // Full payment
+                $this->billModel->update([
+                    'status'  => 'paid',
+                    'paid_at' => date('Y-m-d H:i:s'),
+                ], ['id' => $payment['bill_id']]);
+            }
+
+            $tenant = $this->tenantModel->find((int) $payment['tenant_id']);
+            if ($tenant) {
+                $message = $isPartial 
+                    ? 'Your partial payment of ₱' . number_format($amount, 2) . ' for "' . $billName . '" was verified. ' . 
+                      ($progress['remaining'] > 0 ? 'Remaining balance: ₱' . number_format($progress['remaining'], 2) : '')
+                    : 'Your payment of ₱' . number_format($amount, 2) . ' for "' . $billName . '" was verified and confirmed by your landlord.';
+                
+                $this->notificationModel->createNotification(
+                    (int) $tenant['user_id'],
+                    'payment',
+                    'Payment Confirmed',
+                    $message . ($methodLabel ? " ({$methodLabel})" : ''),
+                    'tenant/bills'
+                );
+            }
+            $this->auditLogModel->log($_SESSION['user_id'], 'payment_approved', 'payment', $paymentId,
+                ['status' => 'pending'], ['status' => 'approved'], 'Payment approved');
+            $this->paymentModel->commit();
+            $this->flash('success', $isPartial ? 'Partial payment approved.' : 'Payment approved and bill marked as paid.');
+        } catch (Exception $e) {
+            $this->paymentModel->rollback();
+            $this->flash('error', 'Error approving payment.');
+            $this->redirect('landlord/payments');
+        }
+
+        $tenant = $this->tenantModel->find((int) $payment['tenant_id']);
+        $tenantUser = $tenant
+            ? $this->userModel->find((int) $tenant['user_id'])
+            : null;
+
+        if ($tenantUser && !empty($tenantUser['email'])) {
+            BoardtrackMail::tenantPaymentApproved(
+                $tenantUser['email'],
+                $tenantUser['name'],
+                $billName,
+                $amount,
+                $methodLabel
+            );
+        }
+
+        if ($tenant && !empty($tenant['guardian_email'])) {
+            BoardtrackMail::guardianPaymentApproved(
+                $tenant['guardian_email'],
+                $tenant['guardian_name'] ?? 'Guardian',
+                $tenantUser['name'] ?? 'Tenant',
+                $billName,
+                $amount,
+                $tenant['guardian_purpose'] ?? 'Emergency contact on file.'
+            );
+        }
+
         $this->redirect('landlord/payments');
     }
 
     public function rejectPayment(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') { $this->redirect('landlord/payments'); }
+
         $paymentId = (int)($_POST['payment_id'] ?? 0);
         $reason    = trim($_POST['reason'] ?? '');
         if (empty($reason)) { $this->flash('error', 'Rejection reason is required.'); $this->redirect('landlord/payments'); }
-        $payment   = $this->paymentModel->find($paymentId);
+
+        $payment = $this->paymentModel->find($paymentId);
         if (!$payment) { $this->flash('error', 'Payment not found.'); $this->redirect('landlord/payments'); }
-        $this->paymentModel->update(['status'=>'rejected','reviewed_by'=>(int)$_SESSION['user_id'],'reviewed_at'=>date('Y-m-d H:i:s'),'review_notes'=>$reason], ['id'=>$paymentId]);
-        $this->billModel->update(['status'=>'unpaid'], ['id'=>$payment['bill_id']]);
-        $tenant = $this->tenantModel->find($payment['tenant_id']);
-        if ($tenant) {
-            $this->notificationModel->createNotification($tenant['user_id'], 'billing', 'Payment Rejected', "Your payment was rejected. Reason: {$reason}", 'tenant/bills');
+        if ($payment['status'] !== 'pending') {
+            $this->flash('error', 'Payment has already been processed.');
+            $this->redirect('landlord/payments');
         }
-        $this->auditLogModel->log($_SESSION['user_id'],'payment_rejected','payment',$paymentId,['status'=>'pending'],['status'=>'rejected'],$reason);
-        $this->flash('success', 'Payment rejected and tenant notified.');
+
+        $isPartial = (bool) ($payment['is_partial'] ?? false);
+
+        try {
+            $this->paymentModel->beginTransaction();
+            $this->paymentModel->update([
+                'status'       => 'rejected',
+                'reviewed_by'  => (int)$_SESSION['user_id'],
+                'reviewed_at'  => date('Y-m-d H:i:s'),
+                'review_notes' => $reason,
+            ], ['id' => $paymentId]);
+            
+            // For partial payments, don't reset bill status if other payments exist
+            if (!$isPartial) {
+                $this->billModel->update(['status' => 'unpaid'], ['id' => $payment['bill_id']]);
+            } else {
+                // Check if there are other approved payments for this bill
+                $totalPaid = $this->paymentModel->getTotalPaidForBill((int) $payment['bill_id']);
+                $bill = $this->billModel->find((int) $payment['bill_id']);
+                if ($totalPaid > 0 && $totalPaid < (float) $bill['amount']) {
+                    $this->billModel->update(['status' => 'partial'], ['id' => $payment['bill_id']]);
+                } elseif ($totalPaid <= 0) {
+                    $this->billModel->update(['status' => 'unpaid'], ['id' => $payment['bill_id']]);
+                }
+            }
+
+            $tenant = $this->tenantModel->find($payment['tenant_id']);
+            if ($tenant) {
+                $this->notificationModel->createNotification(
+                    $tenant['user_id'], 'billing', 'Payment Rejected',
+                    "Your payment was rejected. Reason: {$reason}", 'tenant/bills'
+                );
+            }
+            $this->auditLogModel->log($_SESSION['user_id'], 'payment_rejected', 'payment', $paymentId,
+                ['status' => 'pending'], ['status' => 'rejected'], $reason);
+            $this->paymentModel->commit();
+            $this->flash('success', 'Payment rejected and tenant notified.');
+        } catch (Exception $e) {
+            $this->paymentModel->rollback();
+            $this->flash('error', 'Error rejecting payment.');
+        }
         $this->redirect('landlord/payments');
     }
-
-    // ── Complaints ─────────────────────────────────────────────
+    /**
+     * Complaints
+     */
     public function complaints(): void
     {
-        $filters    = ['status'=>$_GET['status']??null, 'category'=>$_GET['category']??null];
+        $filters    = ['status' => $_GET['status'] ?? null, 'category' => $_GET['category'] ?? null];
         $complaints = $this->complaintModel->getAllWithTenants(array_filter($filters));
         $statistics = $this->complaintModel->getStatistics();
+
         $this->view('landlord/complaints', [
             'pageTitle'  => 'Complaints — BoardTrack',
             'complaints' => $complaints,
@@ -414,81 +765,93 @@ class LandlordController extends Controller
     public function respondComplaint(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') { $this->redirect('landlord/complaints'); }
+
         $id       = (int)($_POST['complaint_id'] ?? 0);
         $response = trim($_POST['response'] ?? '');
         $status   = $_POST['status'] ?? 'in_progress';
-        $valid    = ['pending','in_progress','resolved'];
+        $valid    = ['pending', 'in_progress', 'resolved'];
         if (!in_array($status, $valid)) $status = 'in_progress';
+
         $complaint = $this->complaintModel->find($id);
         if (!$complaint) { $this->flash('error', 'Complaint not found.'); $this->redirect('landlord/complaints'); }
-        $updateData = ['status'=>$status,'landlord_response'=>$response];
+
+        $updateData = ['status' => $status, 'landlord_response' => $response];
         if ($status === 'resolved') {
             $updateData['resolved_by'] = (int)$_SESSION['user_id'];
             $updateData['resolved_at'] = date('Y-m-d H:i:s');
         }
-        $this->complaintModel->update($updateData, ['id'=>$id]);
-        // Look up the tenant to get user_id for notification
+        $this->complaintModel->update($updateData, ['id' => $id]);
+
         $tenant = $this->tenantModel->find($complaint['tenant_id']);
         if ($tenant) {
-            $this->notificationModel->createNotification($tenant['user_id'],'complaint','Complaint Updated',"Your complaint status updated to: ".ucfirst(str_replace('_',' ',$status)),'tenant/complaints');
+            $this->notificationModel->createNotification(
+                $tenant['user_id'], 'complaint', 'Complaint Updated',
+                'Your complaint status updated to: ' . ucfirst(str_replace('_', ' ', $status)),
+                'tenant/complaints'
+            );
         }
-        $this->auditLogModel->log($_SESSION['user_id'],'complaint_updated','complaint',$id,['status'=>$complaint['status']],['status'=>$status],'Complaint status updated');
+        $this->auditLogModel->log($_SESSION['user_id'], 'complaint_updated', 'complaint', $id,
+            ['status' => $complaint['status']], ['status' => $status], 'Complaint status updated');
         $this->flash('success', 'Complaint updated and tenant notified.');
         $this->redirect('landlord/complaints');
     }
 
     public function deleteComplaint(): void
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirect('landlord/complaints');
-        }
-        $id        = (int) ($_POST['complaint_id'] ?? 0);
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') { $this->redirect('landlord/complaints'); }
+
+        $id        = (int)($_POST['complaint_id'] ?? 0);
         $complaint = $this->complaintModel->find($id);
-        if (!$complaint) {
-            $this->flash('error', 'Complaint not found.');
-            $this->redirect('landlord/complaints');
-        }
+        if (!$complaint) { $this->flash('error', 'Complaint not found.'); $this->redirect('landlord/complaints'); }
+
         $this->complaintModel->deleteById($id);
-        $this->auditLogModel->log(
-            $_SESSION['user_id'], 'complaint_deleted', 'complaint', $id,
-            ['title' => $complaint['title']], null, 'Complaint deleted by landlord'
-        );
+        $this->auditLogModel->log($_SESSION['user_id'], 'complaint_deleted', 'complaint', $id,
+            ['title' => $complaint['title']], null, 'Complaint deleted by landlord');
         $this->flash('success', 'Complaint deleted.');
         $this->redirect('landlord/complaints');
     }
-
-    // ── Announcements ──────────────────────────────────────────
+    /**
+     * Announcements
+     */
     public function announcements(): void
     {
         $announcements = $this->announcementModel->getAllWithAuthor();
-        $statistics = $this->announcementModel->getStatistics();
+        $statistics    = $this->announcementModel->getStatistics();
         $this->view('landlord/announcements', [
             'pageTitle'     => 'Announcements — BoardTrack',
             'announcements' => $announcements,
-            'statistics' => $statistics,
+            'statistics'    => $statistics,
         ], 'landlord');
     }
 
     public function createAnnouncement(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') { $this->redirect('landlord/announcements'); }
+
         $data = [
             'title'      => trim($_POST['title']   ?? ''),
-            'content'    => trim($_POST['content']  ?? ''),
+            'content'    => trim($_POST['content'] ?? ''),
             'priority'   => $_POST['priority']     ?? 'normal',
             'event_date' => !empty($_POST['event_date']) ? $_POST['event_date'] : null,
             'is_active'  => 1,
             'created_by' => (int)$_SESSION['user_id'],
         ];
+
         if (empty($data['title']) || empty($data['content'])) {
             $this->flash('error', 'Title and content are required.');
             $this->redirect('landlord/announcements');
         }
+
         $this->announcementModel->insert($data);
-        // Notify all active tenants
-        $activeTenants = $this->tenantModel->getActiveTenants();
-        foreach ($activeTenants as $t) {
-            $this->notificationModel->createNotification($t['user_id'],'announcement',$data['title'],"New announcement: {$data['title']}",'tenant/announcements');
+
+        // Notify all active tenants with full content (even if temporarily without a room)
+        $activeTenants = $this->tenantModel->getAllWithFilters(['status' => 'active']);
+        $userIds = array_column($activeTenants, 'user_id');
+        if (!empty($userIds)) {
+            $this->notificationModel->createNotificationsBulk(
+                $userIds, 'announcement', $data['title'],
+                $data['content'], 'tenant/notifications'
+            );
         }
         $this->flash('success', 'Announcement posted and tenants notified.');
         $this->redirect('landlord/announcements');
@@ -496,7 +859,6 @@ class LandlordController extends Controller
 
     public function editAnnouncement(int $id): void
     {
-        // For now, redirect to announcements page — edit is done inline
         $this->flash('info', 'Please use the announcements page to manage announcements.');
         $this->redirect('landlord/announcements');
     }
@@ -504,9 +866,11 @@ class LandlordController extends Controller
     public function toggleAnnouncement(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') { $this->redirect('landlord/announcements'); }
-        $id = (int)($_POST['announcement_id'] ?? 0);
+
+        $id           = (int)($_POST['announcement_id'] ?? 0);
         $announcement = $this->announcementModel->find($id);
         if (!$announcement) { $this->flash('error', 'Announcement not found.'); $this->redirect('landlord/announcements'); }
+
         $newStatus = $announcement['is_active'] ? 0 : 1;
         $this->announcementModel->update(['is_active' => $newStatus], ['id' => $id]);
         $label = $newStatus ? 'activated' : 'deactivated';
@@ -519,57 +883,350 @@ class LandlordController extends Controller
     public function deleteAnnouncement(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') { $this->redirect('landlord/announcements'); }
+
         $id = (int)($_POST['announcement_id'] ?? 0);
         if (!$id) { $this->flash('error', 'Invalid announcement.'); $this->redirect('landlord/announcements'); }
+
         $this->announcementModel->delete($id);
-        $this->auditLogModel->log($_SESSION['user_id'], 'announcement_deleted', 'announcement', $id, null, null, 'Announcement deleted');
+        $this->auditLogModel->log($_SESSION['user_id'], 'announcement_deleted', 'announcement', $id,
+            null, null, 'Announcement deleted');
         $this->flash('success', 'Announcement deleted.');
         $this->redirect('landlord/announcements');
     }
-
-    // ── Waiting List ── FIX: was missing ──────────────────────
+    /**
+     * Waiting List
+     */
     public function waitingList(): void
     {
-        $queue        = $this->waitingListModel->getQueueWithDetails();
+        $queue          = $this->waitingListModel->getQueueWithDetails();
         $availableRooms = $this->roomModel->getAvailable();
-        $statistics = [
-            'total_waiting' => $this->waitingListModel->countByWhere("status = 'waiting'"),
-            'single_preference' => $this->waitingListModel->countByWhere("status = 'waiting' AND room_type_preference = 'single'"),
-            'shared_preference' => $this->waitingListModel->countByWhere("status = 'waiting' AND room_type_preference = 'shared'")
+        $statistics     = [
+            'total_waiting'      => $this->waitingListModel->countByWhere("status = 'waiting'"),
+            'single_preference'  => $this->waitingListModel->countByWhere("status = 'waiting' AND room_type_preference = 'single'"),
+            'shared_preference'  => $this->waitingListModel->countByWhere("status = 'waiting' AND room_type_preference = 'shared'"),
         ];
         $this->view('landlord/waitingList', [
-            'pageTitle'     => 'Waiting List — BoardTrack',
-            'queue'         => $queue,
-            'availableRooms'=> $availableRooms,
-            'statistics' => $statistics,
+            'pageTitle'      => 'Waiting List — BoardTrack',
+            'queue'          => $queue,
+            'availableRooms' => $availableRooms,
+            'statistics'     => $statistics,
         ], 'landlord');
     }
 
     public function assignFromWaiting(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') { $this->redirect('landlord/waitingList'); }
+
         $waitId  = (int)($_POST['waiting_id'] ?? 0);
         $roomId  = (int)($_POST['room_id']    ?? 0);
         $waiting = $this->waitingListModel->find($waitId);
+
         if (!$waiting || !$roomId) { $this->flash('error', 'Invalid selection.'); $this->redirect('landlord/waitingList'); }
+
         $this->tenantModel->assignRoom($waiting['tenant_id'], $roomId, date('Y-m-d'));
         $this->roomModel->updateOccupancy($roomId);
-        $this->waitingListModel->update(['status'=>'assigned'], ['id'=>$waitId]);
+        $this->waitingListModel->update(['status' => 'assigned', 'assigned_at' => date('Y-m-d H:i:s')], ['id' => $waitId]);
+
         $tenant = $this->tenantModel->find($waiting['tenant_id']);
         if ($tenant) {
-            $this->userModel->update(['status'=>'active'], ['id'=>$tenant['user_id']]);
-            $this->notificationModel->createNotification($tenant['user_id'],'room','Room Assigned','You have been assigned to a room from the waiting list.','tenant/dashboard');
+            $this->userModel->update(['status' => 'active'], ['id' => $tenant['user_id']]);
+            $this->notificationModel->createNotification(
+                $tenant['user_id'], 'room', 'Room Assigned',
+                'You have been assigned to a room from the waiting list.', 'tenant/dashboard'
+            );
         }
-        $this->auditLogModel->log($_SESSION['user_id'],'room_assigned_from_waiting','tenant',$waiting['tenant_id'],['status'=>'waiting_list'],['status'=>'active','room_id'=>$roomId],'Assigned from waiting list');
+        $this->auditLogModel->log($_SESSION['user_id'], 'room_assigned_from_waiting', 'tenant', $waiting['tenant_id'],
+            ['status' => 'waiting_list'], ['status' => 'active', 'room_id' => $roomId], 'Assigned from waiting list');
         $this->flash('success', 'Tenant assigned from waiting list.');
         $this->redirect('landlord/waitingList');
     }
 
-    // ── Audit Log ── FIX: was missing ─────────────────────────
+    /**
+     * Automatic waiting list assignment based on preferences and availability
+     */
+    public function autoAssignWaitingList(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') { $this->redirect('landlord/waitingList'); }
+
+        $assignedCount = 0;
+        $waitingTenants = $this->waitingListModel->rawQuery(
+            "SELECT wl.*, t.room_type_preference, t.id as tenant_id, t.user_id
+             FROM waiting_list wl
+             JOIN tenants t ON wl.tenant_id = t.id
+             JOIN users u ON t.user_id = u.id
+             WHERE wl.status = 'waiting' AND u.status = 'waiting_list'
+             ORDER BY wl.requested_at ASC, wl.priority_order ASC"
+        );
+
+        foreach ($waitingTenants as $waiting) {
+            $preference = $waiting['room_type_preference'] ?? 'shared';
+            $availableRooms = $this->roomModel->rawQuery(
+                "SELECT r.*, (r.max_occupants - r.current_occupants) as available_spots
+                 FROM rooms r
+                 WHERE r.status = 'available'
+                 AND r.room_type = :room_type
+                 AND r.current_occupants < r.max_occupants
+                 ORDER BY r.floor ASC, r.room_number ASC",
+                [':room_type' => $preference]
+            );
+
+            if (!empty($availableRooms)) {
+                $room = $availableRooms[0];
+                
+                // Check compatibility if shared room
+                if ($room['room_type'] === 'shared') {
+                    $compatibilityScore = $this->calculateRoomCompatibility(
+                        (int) $waiting['tenant_id'],
+                        (int) $room['id']
+                    );
+                    
+                    // Only assign if compatibility is acceptable (>= 60%)
+                    if ($compatibilityScore < 60) {
+                        continue; // Skip this tenant, try next
+                    }
+                }
+
+                // Assign the room
+                $this->tenantModel->assignRoom((int) $waiting['tenant_id'], (int) $room['id'], date('Y-m-d'));
+                $this->roomModel->updateOccupancy((int) $room['id']);
+                $this->waitingListModel->update(
+                    ['status' => 'assigned', 'assigned_at' => date('Y-m-d H:i:s')],
+                    ['id' => $waiting['id']]
+                );
+                $this->userModel->update(['status' => 'active'], ['id' => (int) $waiting['user_id']]);
+                
+                // Notify tenant
+                $this->notificationModel->createNotification(
+                    (int) $waiting['user_id'],
+                    'room',
+                    'Room Assigned',
+                    'You have been automatically assigned to Room ' . $room['room_number'] . ' from the waiting list.',
+                    'tenant/dashboard'
+                );
+                
+                $assignedCount++;
+            }
+        }
+
+        if ($assignedCount > 0) {
+            $this->auditLogModel->log(
+                $_SESSION['user_id'],
+                'auto_assign_waiting_list',
+                'waiting_list',
+                0,
+                null,
+                ['assigned_count' => $assignedCount],
+                "Auto-assigned {$assignedCount} tenants from waiting list"
+            );
+            $this->flash('success', "Automatically assigned {$assignedCount} tenants from the waiting list.");
+        } else {
+            $this->flash('info', 'No tenants could be automatically assigned. No matching rooms available or compatibility issues.');
+        }
+
+        $this->redirect('landlord/waitingList');
+    }
+
+    /**
+     * Calculate compatibility score between a tenant and a room's current occupants
+     */
+    private function calculateRoomCompatibility(int $tenantId, int $roomId): int
+    {
+        $personalityModel = $this->model('PersonalityAnswer');
+        $currentOccupants = $this->tenantModel->getByRoomId($roomId);
+        
+        if (empty($currentOccupants)) {
+            return 100; // Empty room, full compatibility
+        }
+
+        $tenantAnswers = $personalityModel->getAnswersForTenant($tenantId);
+        if (empty($tenantAnswers)) {
+            return 70; // No personality data, give moderate score
+        }
+
+        $totalScore = 0;
+        $comparisonCount = 0;
+
+        foreach ($currentOccupants as $occupant) {
+            if ($occupant['id'] == $tenantId) continue;
+            
+            $occupantAnswers = $personalityModel->getAnswersForTenant((int) $occupant['id']);
+            if (empty($occupantAnswers)) continue;
+
+            $score = $this->comparePersonalities($tenantAnswers, $occupantAnswers);
+            $totalScore += $score;
+            $comparisonCount++;
+        }
+
+        if ($comparisonCount === 0) return 100;
+        
+        return (int) round($totalScore / $comparisonCount);
+    }
+
+    /**
+     * Compare two tenants' personality answers and return compatibility score (0-100)
+     */
+    private function comparePersonalities(array $answers1, array $answers2): int
+    {
+        $totalWeight = 0;
+        $compatibilityScore = 0;
+
+        // Group answers by question
+        $answers1ByQuestion = [];
+        $answers2ByQuestion = [];
+        
+        foreach ($answers1 as $a) {
+            $answers1ByQuestion[$a['question_id']] = $a;
+        }
+        foreach ($answers2 as $a) {
+            $answers2ByQuestion[$a['question_id']] = $a;
+        }
+
+        // Compare common questions
+        foreach ($answers1ByQuestion as $questionId => $answer1) {
+            if (!isset($answers2ByQuestion[$questionId])) continue;
+            
+            $answer2 = $answers2ByQuestion[$questionId];
+            $weight = (float) ($answer1['weight'] ?? 1.0);
+            
+            // Calculate difference (1-5 scale)
+            $diff = abs((int) $answer1['answer_value'] - (int) $answer2['answer_value']);
+            
+            // Convert difference to compatibility (0 diff = 100%, 4 diff = 0%)
+            $questionCompatibility = max(0, 100 - ($diff * 25));
+            
+            $compatibilityScore += ($questionCompatibility * $weight);
+            $totalWeight += $weight;
+        }
+
+        if ($totalWeight === 0) return 70;
+        
+        return (int) round($compatibilityScore / $totalWeight);
+    }
+    /**
+     * Payment Reminders
+     */
+    public function sendPaymentReminders(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') { $this->redirect('landlord/bills'); }
+
+        require_once ROOT_PATH . '/app/helpers/BoardtrackMail.php';
+
+        $reminderType = $_POST['reminder_type'] ?? 'upcoming';
+        $daysAhead = (int) ($_POST['days_ahead'] ?? 3);
+        $sentCount = 0;
+
+        if ($reminderType === 'upcoming') {
+            // Send reminders for bills due within X days
+            $bills = $this->billModel->getBillsDueForReminder($daysAhead);
+            
+            foreach ($bills as $bill) {
+                $tenantId = (int) $bill['tenant_id'];
+                $tenant = $this->tenantModel->find($tenantId);
+                
+                if ($tenant && !empty($bill['email'])) {
+                    // Determine reminder level
+                    $reminderLevel = 1;
+                    if ($bill['reminder_sent_1']) $reminderLevel = 2;
+                    if ($bill['reminder_sent_2']) $reminderLevel = 3;
+                    
+                    if ($reminderLevel <= 3) {
+                        $daysUntilDue = (new DateTime($bill['due_date']))->diff(new DateTime())->days;
+                        
+                        BoardtrackMail::paymentReminder(
+                            $bill['email'],
+                            $bill['tenant_name'],
+                            $bill['bill_name'],
+                            (float) $bill['amount'],
+                            $bill['due_date'],
+                            $daysUntilDue,
+                            $reminderLevel
+                        );
+                        
+                        $this->notificationModel->createNotification(
+                            (int) $tenant['user_id'],
+                            'billing',
+                            'Payment Due Soon',
+                            "Your bill \"{$bill['bill_name']}\" of ₱" . number_format((float) $bill['amount'], 2) . 
+                            " is due in {$daysUntilDue} day(s).",
+                            'tenant/bills'
+                        );
+                        
+                        $this->billModel->markReminderSent((int) $bill['id'], $reminderLevel);
+                        $sentCount++;
+                    }
+                }
+            }
+            
+            $this->auditLogModel->log(
+                $_SESSION['user_id'],
+                'payment_reminders_sent',
+                'bill',
+                0,
+                null,
+                ['type' => 'upcoming', 'days_ahead' => $daysAhead, 'sent_count' => $sentCount],
+                "Sent {$sentCount} upcoming payment reminders"
+            );
+            
+        } elseif ($reminderType === 'overdue') {
+            // Send reminders for overdue bills
+            $bills = $this->billModel->getOverdueBills();
+            
+            foreach ($bills as $bill) {
+                $tenantId = (int) $bill['tenant_id'];
+                $tenant = $this->tenantModel->find($tenantId);
+                
+                if ($tenant && !empty($bill['email'])) {
+                    $daysOverdue = (new DateTime())->diff(new DateTime($bill['due_date']))->days;
+                    
+                    BoardtrackMail::paymentOverdue(
+                        $bill['email'],
+                        $bill['tenant_name'],
+                        $bill['bill_name'],
+                        (float) $bill['amount'],
+                        $bill['due_date'],
+                        $daysOverdue
+                    );
+                    
+                    $this->notificationModel->createNotification(
+                        (int) $tenant['user_id'],
+                        'billing',
+                        'Payment Overdue',
+                        "Your bill \"{$bill['bill_name']}\" of ₱" . number_format((float) $bill['amount'], 2) . 
+                        " is overdue by {$daysOverdue} day(s).",
+                        'tenant/bills'
+                    );
+                    
+                    $sentCount++;
+                }
+            }
+            
+            $this->auditLogModel->log(
+                $_SESSION['user_id'],
+                'payment_reminders_sent',
+                'bill',
+                0,
+                null,
+                ['type' => 'overdue', 'sent_count' => $sentCount],
+                "Sent {$sentCount} overdue payment reminders"
+            );
+        }
+
+        if ($sentCount > 0) {
+            $this->flash('success', "Successfully sent {$sentCount} payment reminders.");
+        } else {
+            $this->flash('info', 'No payment reminders were sent. No eligible bills found.');
+        }
+
+        $this->redirect('landlord/bills');
+    }
+
+    /**
+     * Audit Log
+     */
     public function auditLog(): void
     {
-        $page  = max(1, (int)($_GET['page'] ?? 1));
-        $limit = 100;
+        $page    = max(1, (int)($_GET['page'] ?? 1));
+        $limit   = 100;
         $filters = [
             'action'    => $_GET['action']    ?? null,
             'entity'    => $_GET['entity']    ?? null,
@@ -578,14 +1235,16 @@ class LandlordController extends Controller
             'limit'     => $limit,
             'page'      => $page,
         ];
-        $logs = $this->auditLogModel->getAll($filters);
-        $totalLogs  = $this->auditLogModel->countAll(array_filter([
+
+        $logs      = $this->auditLogModel->getAll($filters);
+        $totalLogs = $this->auditLogModel->countAll(array_filter([
             'action'    => $filters['action'],
             'entity'    => $filters['entity'],
             'date_from' => $filters['date_from'],
             'date_to'   => $filters['date_to'],
         ]));
         $totalPages = max(1, (int)ceil($totalLogs / $limit));
+
         $this->view('landlord/auditlog', [
             'pageTitle'  => 'Audit Log — BoardTrack',
             'logs'       => $logs,
@@ -597,33 +1256,180 @@ class LandlordController extends Controller
             ],
         ], 'landlord');
     }
+    /** GET landlord/notifications */
+    public function notifications(): void
+    {
+        $userId = (int) $_SESSION['user_id'];
+        $this->view('tenant/notifications', [
+            'pageTitle'     => 'Notifications — BoardTrack',
+            'notifications' => $this->notificationModel->getForUser($userId),
+            'markAllUrl'    => 'landlord/notifications/mark-all-read',
+        ], 'landlord');
+    }
 
-    // ── Profile ─────────────────────────────────────────────────
+    /** POST landlord/notification/mark-read */
+    public function markNotificationRead(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('landlord/notifications');
+        }
+
+        $notificationId = (int) ($_POST['notification_id'] ?? 0);
+        $userId = (int) $_SESSION['user_id'];
+        if ($notificationId > 0) {
+            $this->notificationModel->markRead($notificationId, $userId);
+        }
+
+        $this->json([
+            'success'      => true,
+            'unread_count' => $this->notificationModel->getUnreadCount($userId),
+        ]);
+    }
+
+    /** POST landlord/notifications/mark-all-read */
+    public function markAllNotificationsRead(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('landlord/notifications');
+        }
+
+        $userId = (int) $_SESSION['user_id'];
+        $this->notificationModel->markAllRead($userId);
+
+        if ($this->wantsJson()) {
+            $this->json(['success' => true, 'unread_count' => 0]);
+        }
+
+        $this->flash('success', 'All notifications marked as read.');
+        $this->redirect('landlord/notifications');
+    }
+
+    /**
+     * Profile
+     */
     public function profile(): void
     {
-        $user = $this->userModel->findById((int)$_SESSION['user_id']);
+        $userId = (int) $_SESSION['user_id'];
+        $user   = $this->userModel->find($userId);
+        if (!$user) {
+            $this->invalidSession('Your account could not be loaded. Please log in again.');
+        }
+
+        $_SESSION['user_email'] = $user['email'] ?? '';
+
         $this->view('landlord/profile', [
             'pageTitle' => 'My Profile — BoardTrack',
             'user'      => $user,
         ], 'landlord');
     }
 
+    /** POST landlord/upload-gcash-qr */
+    public function uploadGcashQr(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('landlord/profile');
+        }
+
+        $userId = (int) $_SESSION['user_id'];
+        $user   = $this->userModel->find($userId);
+        if (!$user || ($user['role'] ?? '') !== 'landlord') {
+            $this->redirect('landlord/profile');
+        }
+
+        if (!isset($_FILES['gcash_qr']) || $_FILES['gcash_qr']['error'] !== UPLOAD_ERR_OK) {
+            $this->flash('error', 'Please select a GCash QR image to upload.');
+            $this->redirect('landlord/profile');
+        }
+
+        $file = $_FILES['gcash_qr'];
+        if (!in_array($file['type'], UPLOAD_ALLOWED, true)) {
+            $this->flash('error', 'QR code must be a JPG or PNG image.');
+            $this->redirect('landlord/profile');
+        }
+        if ($file['size'] > UPLOAD_MAX_SIZE) {
+            $this->flash('error', 'Image must be less than 2MB.');
+            $this->redirect('landlord/profile');
+        }
+
+        if (!is_dir(UPLOAD_GCASH)) {
+            mkdir(UPLOAD_GCASH, 0755, true);
+        }
+
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, UPLOAD_ALLOWED_EXT, true)) {
+            $ext = $file['type'] === 'image/png' ? 'png' : 'jpg';
+        }
+        $filename = 'gcash_' . $userId . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
+        $filepath = UPLOAD_GCASH . '/' . $filename;
+
+        if (!move_uploaded_file($file['tmp_name'], $filepath)) {
+            $this->flash('error', 'Failed to upload QR code. Please try again.');
+            $this->redirect('landlord/profile');
+        }
+
+        if (!empty($user['gcash_qr_path'])) {
+            $old = UPLOAD_GCASH . '/' . $user['gcash_qr_path'];
+            if (is_file($old)) {
+                @unlink($old);
+            }
+        }
+
+        $this->userModel->updateGcashQr($userId, $filename);
+        $this->flash('success', 'GCash QR code uploaded. Tenants can now scan it when paying via GCash.');
+        $this->redirect('landlord/profile');
+    }
+
+    /** POST landlord/remove-gcash-qr */
+    public function removeGcashQr(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('landlord/profile');
+        }
+
+        $userId = (int) $_SESSION['user_id'];
+        $user   = $this->userModel->find($userId);
+        if ($user && !empty($user['gcash_qr_path'])) {
+            $path = UPLOAD_GCASH . '/' . $user['gcash_qr_path'];
+            if (is_file($path)) {
+                @unlink($path);
+            }
+            $this->userModel->updateGcashQr($userId, null);
+        }
+        $this->flash('success', 'GCash QR code removed.');
+        $this->redirect('landlord/profile');
+    }
+
+    /**
+     * POST landlord/updateProfile
+     *
+     * UPDATED (Prompt 2): Password change removed from this form.
+     * Password changes now go through auth/changePassword (requires current
+     * password + TOTP if 2FA is enabled).
+     */
     public function updateProfile(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') { $this->redirect('landlord/profile'); }
-        $userId = (int)$_SESSION['user_id'];
+
+        $userId = (int) $_SESSION['user_id'];
         $name   = trim($_POST['name']  ?? '');
         $email  = trim($_POST['email'] ?? '');
+
         if (empty($name) || empty($email)) {
             $this->flash('error', 'Name and email are required.');
             $this->redirect('landlord/profile');
         }
-        $data = ['name' => $name, 'email' => $email];
-        if (!empty($_POST['new_password'])) {
-            $data['password_hash'] = password_hash($_POST['new_password'], PASSWORD_BCRYPT);
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $this->flash('error', 'Please enter a valid email address.');
+            $this->redirect('landlord/profile');
         }
-        $this->userModel->update($data, ['id' => $userId]);
-        $_SESSION['user_name'] = $name;
+
+        // Update name + email only (no password_hash here)
+        $this->userModel->update(['name' => $name, 'email' => $email], ['id' => $userId]);
+
+        $_SESSION['user_name']  = $name;
+        $_SESSION['user_email'] = $email;
+
         $this->flash('success', 'Profile updated successfully.');
         $this->redirect('landlord/profile');
     }

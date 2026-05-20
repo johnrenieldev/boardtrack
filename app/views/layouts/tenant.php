@@ -1,7 +1,6 @@
 <?php
 /**
  * BoardTrack — Tenant Layout
- * app/views/layouts/tenant.php
  */
 $role = 'tenant';
 ?>
@@ -17,7 +16,10 @@ $role = 'tenant';
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link rel="stylesheet" href="<?= Router::asset('css/dashboard.css') ?>">
 </head>
-<body class="dashboard-body">
+<body class="dashboard-body"
+  data-mark-notif-read-url="<?= htmlspecialchars($markNotificationReadUrl ?? '', ENT_QUOTES) ?>"
+  data-mark-all-notif-url="<?= htmlspecialchars($markAllNotificationsUrl ?? '', ENT_QUOTES) ?>"
+  data-unread-notif-count="<?= (int) ($unreadNotificationCount ?? 0) ?>">
 <div class="dashboard-layout">
 
   <?php require APP_PATH . '/views/components/sidebar.php'; ?>
@@ -33,6 +35,8 @@ $role = 'tenant';
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= Router::asset('js/confirm-actions.js') ?>"></script>
+<script src="<?= Router::asset('js/notifications.js') ?>"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   var sidebar  = document.getElementById('sidebar');
@@ -46,31 +50,6 @@ document.addEventListener('DOMContentLoaded', function() {
         sidebar.classList.remove('open');
       }
     }
-  });
-
-  document.querySelectorAll('a[data-confirm], button[data-confirm]:not([type="submit"])').forEach(function(el) {
-    el.addEventListener('click', function(e) {
-      e.preventDefault();
-      var href = el.getAttribute('href') || el.getAttribute('data-href');
-      var msg  = el.getAttribute('data-confirm') || 'Are you sure?';
-      Swal.fire({ title: 'Confirm', text: msg, icon: 'warning', showCancelButton: true,
-        confirmButtonColor: '#2563eb', cancelButtonColor: '#9ca3af', confirmButtonText: 'Yes'
-      }).then(function(r) { if (r.isConfirmed && href) window.location.href = href; });
-    });
-  });
-
-  // SweetAlert confirm forms
-  document.querySelectorAll('form[data-confirm]').forEach(function(form) {
-    form.addEventListener('submit', function(e) {
-      e.preventDefault();
-      var msg = form.getAttribute('data-confirm');
-      Swal.fire({
-        title: 'Confirm', text: msg,
-        icon: 'warning', showCancelButton: true,
-        confirmButtonColor: '#2563eb', cancelButtonColor: '#9ca3af',
-        confirmButtonText: 'Yes, proceed'
-      }).then(function(r) { if (r.isConfirmed) form.submit(); });
-    });
   });
 });
 </script>

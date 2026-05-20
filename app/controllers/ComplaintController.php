@@ -21,8 +21,9 @@ class ComplaintController extends Controller
         $role = $_SESSION['user_role'] ?? 'tenant';
         $this->redirect($role === 'landlord' ? 'landlord/complaints' : 'tenant/complaints');
     }
-
-    // ── LANDLORD: List complaints ──────────────────────────────
+    /**
+     * LANDLORD: List complaints
+     */
     public function complaints(): void
     {
         if ($_SESSION['user_role'] !== 'landlord') {
@@ -39,8 +40,9 @@ class ComplaintController extends Controller
             'filters'    => $filters,
         ], 'landlord');
     }
-
-    // ── TENANT: List complaints ───────────────────────────────
+    /**
+     * TENANT: List complaints
+     */
     public function tenantComplaints(): void
     {
         $tenant = $this->tenantModel->findByUserId((int)$_SESSION['user_id']);
@@ -50,16 +52,18 @@ class ComplaintController extends Controller
             'complaints' => $complaints,
         ], 'tenant');
     }
-
-    // ── TENANT: Create complaint ──────────────────────────────
+    /**
+     * TENANT: Create complaint
+     */
     public function createComplaint(): void
     {
         $this->view('tenant/complaintForm', [
             'pageTitle' => 'Submit Complaint — BoardTrack',
         ], 'tenant');
     }
-
-    // ── TENANT: Save complaint ────────────────────────────────
+    /**
+     * TENANT: Save complaint
+     */
     public function saveComplaint(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

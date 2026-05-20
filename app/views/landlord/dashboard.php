@@ -14,18 +14,18 @@ $pendingPayments     = $pendingPayments     ?? [];
   <div class="page-header-row">
     <div>
       <h1 class="page-title">Dashboard</h1>
-      <p class="page-subtitle">Overview of BoardTrack operations — <?= date('F j, Y') ?></p>
+      <p class="page-subtitle">Overview — <?= date('F j, Y') ?></p>
     </div>
-    <a href="<?= Router::url('landlord/tenants') ?>?status=pending" class="btn btn-primary btn-sm">
-      <i class="fa-solid fa-user-clock"></i> Review Pending
-      <?php if (($stats['pendingCount'] ?? 0) > 0): ?>
+    <?php if (($stats['pendingCount'] ?? 0) > 0): ?>
+      <a href="<?= Router::url('landlord/tenants') ?>&status=pending" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-user-clock"></i> Review Pending
         <span style="background:#fff;color:var(--primary);border-radius:10px;font-size:0.7rem;padding:1px 6px;margin-left:4px;font-weight:700;"><?= $stats['pendingCount'] ?></span>
-      <?php endif; ?>
-    </a>
+      </a>
+    <?php endif; ?>
   </div>
 </div>
 
-<!-- STAT CARDS -->
+<!-- STAT CARDS - Priority Metrics -->
 <div class="stats-grid">
   <div class="stat-card">
     <div class="stat-label"><i class="fa-solid fa-user-clock" style="margin-right:4px;"></i> Pending Tenants</div>
@@ -50,30 +50,6 @@ $pendingPayments     = $pendingPayments     ?? [];
       <?= $stats['unpaidBills'] ?? 0 ?>
     </div>
     <div class="stat-meta"><?= $stats['pendingPayments'] ?? 0 ?> pending verification</div>
-  </div>
-</div>
-
-<!-- Second row -->
-<div class="stats-grid" style="margin-top:-4px;">
-  <div class="stat-card">
-    <div class="stat-label"><i class="fa-solid fa-triangle-exclamation" style="margin-right:4px;"></i> Open Complaints</div>
-    <div class="stat-value"><?= $stats['openComplaints'] ?? 0 ?></div>
-    <div class="stat-meta">Need attention</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-label"><i class="fa-solid fa-circle-check" style="margin-right:4px;"></i> Payments Approved</div>
-    <div class="stat-value"><?= $stats['approvedPayments'] ?? 0 ?></div>
-    <div class="stat-meta">This month</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-label"><i class="fa-solid fa-wrench" style="margin-right:4px;"></i> Maintenance Rooms</div>
-    <div class="stat-value"><?= $stats['maintenanceRooms'] ?? 0 ?></div>
-    <div class="stat-meta">Under maintenance</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-label"><i class="fa-solid fa-user-xmark" style="margin-right:4px;"></i> Rejected Tenants</div>
-    <div class="stat-value"><?= $stats['rejectedCount'] ?? 0 ?></div>
-    <div class="stat-meta">Total</div>
   </div>
 </div>
 
@@ -113,7 +89,7 @@ $pendingPayments     = $pendingPayments     ?? [];
     <div class="card" style="margin-bottom:16px;">
       <div class="card-header">
         <div class="card-title">Recent Complaints</div>
-        <a href="<?= Router::url('landlord/complaints') ?>" class="btn btn-secondary btn-sm">View all</a>
+        <a href="<?= Router::url('landlord/complaints') ?>" class="btn btn-ghost btn-sm">View all</a>
       </div>
       <?php if (!empty($recentComplaints)): ?>
         <div class="table-wrap">
@@ -160,33 +136,13 @@ $pendingPayments     = $pendingPayments     ?? [];
   <!-- RIGHT: Quick Actions + Pending Payments -->
   <div>
 
-    <!-- Quick actions -->
-    <div class="card" style="margin-bottom:16px;">
-      <div class="card-title" style="margin-bottom:12px;">Quick Actions</div>
-      <div style="display:flex;flex-direction:column;gap:6px;">
-        <a href="<?= Router::url('landlord/tenants') ?>?status=pending" class="btn btn-secondary" style="justify-content:flex-start;">
-          <i class="fa-solid fa-user-clock"></i> Review Pending Tenants
-        </a>
-        <a href="<?= Router::url('landlord/payments') ?>" class="btn btn-secondary" style="justify-content:flex-start;">
-          <i class="fa-solid fa-credit-card"></i> Verify Payments
-        </a>
-        <a href="<?= Router::url('landlord/bills') ?>" class="btn btn-secondary" style="justify-content:flex-start;">
-          <i class="fa-solid fa-file-invoice"></i> Manage Billing
-        </a>
-        <a href="<?= Router::url('landlord/announcements') ?>" class="btn btn-secondary" style="justify-content:flex-start;">
-          <i class="fa-solid fa-bullhorn"></i> Post Announcement
-        </a>
-        <a href="<?= Router::url('landlord/rooms') ?>" class="btn btn-secondary" style="justify-content:flex-start;">
-          <i class="fa-solid fa-door-open"></i> Manage Rooms
-        </a>
-      </div>
-    </div>
+
 
     <!-- Pending payments -->
     <div class="card">
       <div class="card-header">
         <div class="card-title">Pending Payments</div>
-        <a href="<?= Router::url('landlord/payments') ?>" class="btn btn-secondary btn-sm">All</a>
+        <a href="<?= Router::url('landlord/payments') ?>" class="btn btn-ghost btn-sm">View all</a>
       </div>
       <?php if (!empty($pendingPayments)): ?>
         <div style="display:flex;flex-direction:column;gap:2px;">
@@ -196,17 +152,17 @@ $pendingPayments     = $pendingPayments     ?? [];
                 <i class="fa-solid fa-receipt"></i>
               </div>
               <div style="flex:1;min-width:0;">
-                <div style="font-size:0.85rem;font-weight:500;color:var(--gray-900);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?= htmlspecialchars($p['tenant_name'] ?? '—') ?></div>
+                <div style="font-size:0.85rem;font-weight:600;color:var(--gray-900);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?= htmlspecialchars($p['tenant_name'] ?? '—') ?></div>
                 <div style="font-size:0.75rem;color:var(--gray-400);">₱<?= number_format($p['amount_paid'] ?? 0, 2) ?></div>
               </div>
-              <a href="<?= Router::url('landlord/payments') ?>" class="btn btn-primary btn-sm">Review</a>
+              <a href="<?= Router::url('landlord/view-payment/' . $p['id']) ?>" class="btn btn-outline btn-sm">Review</a>
             </div>
           <?php endforeach; ?>
         </div>
       <?php else: ?>
         <div class="empty-state">
           <i class="fa-solid fa-circle-check"></i>
-          <p>No pending payments to review</p>
+          <p>No pending payments</p>
         </div>
       <?php endif; ?>
     </div>

@@ -29,7 +29,7 @@ $name = htmlspecialchars(explode(' ', $user['name'] ?? 'Tenant')[0]);
     <div class="stat-value">
       <?= $stats['unpaidBills'] ?? 0 ?>
     </div>
-    <div class="stat-meta"><a href="<?= Router::url('tenant/bills') ?>" style="color:var(--primary);">View bills</a></div>
+    <div class="stat-meta"><a href="<?= Router::url('tenant/bills') ?>" style="color:var(--gray-500);text-decoration:none;">View bills</a></div>
   </div>
   <div class="stat-card">
     <div class="stat-label">Pending Payments</div>
@@ -39,7 +39,7 @@ $name = htmlspecialchars(explode(' ', $user['name'] ?? 'Tenant')[0]);
   <div class="stat-card">
     <div class="stat-label">Open Complaints</div>
     <div class="stat-value"><?= $stats['openComplaints'] ?? 0 ?></div>
-    <div class="stat-meta"><a href="<?= Router::url('tenant/complaints') ?>" style="color:var(--primary);">View</a></div>
+    <div class="stat-meta"><a href="<?= Router::url('tenant/complaints') ?>" style="color:var(--gray-500);text-decoration:none;">View</a></div>
   </div>
   <div class="stat-card">
     <div class="stat-label">Notifications</div>
@@ -103,7 +103,7 @@ $name = htmlspecialchars(explode(' ', $user['name'] ?? 'Tenant')[0]);
     <div class="card">
       <div class="card-header">
         <div class="card-title">Recent Bills</div>
-        <a href="<?= Router::url('tenant/bills') ?>" class="btn btn-secondary btn-sm">View All</a>
+        <a href="<?= Router::url('tenant/bills') ?>" class="btn btn-ghost btn-sm">View all</a>
       </div>
       <?php if (!empty($recentBills)): ?>
         <div class="table-wrap">
@@ -124,7 +124,7 @@ $name = htmlspecialchars(explode(' ', $user['name'] ?? 'Tenant')[0]);
               ?>
               <tr>
                 <td class="td-name"><?= htmlspecialchars($b['bill_name']) ?></td>
-                <td style="font-weight:500;">₱<?= number_format($b['amount'], 2) ?></td>
+                <td style="font-weight:600;">₱<?= number_format($b['amount'], 2) ?></td>
                 <td style="color:var(--gray-400);"><?= date('M d, Y', strtotime($b['due_date'])) ?></td>
                 <td><span class="badge <?= $bclass[$bs] ?? 'badge-normal' ?>"><?= ucfirst(str_replace('_',' ',$bs)) ?></span></td>
                 <td>
@@ -152,7 +152,7 @@ $name = htmlspecialchars(explode(' ', $user['name'] ?? 'Tenant')[0]);
     <div class="card" style="margin-bottom:16px;">
       <div class="card-header">
         <div class="card-title">Announcements</div>
-        <a href="<?= Router::url('tenant/announcements') ?>" class="btn btn-secondary btn-sm">View All</a>
+        <a href="<?= Router::url('tenant/announcements') ?>" class="btn btn-ghost btn-sm">View all</a>
       </div>
       <?php if (!empty($recentAnnouncements)): ?>
         <div class="notif-list">
@@ -176,24 +176,7 @@ $name = htmlspecialchars(explode(' ', $user['name'] ?? 'Tenant')[0]);
       <?php endif; ?>
     </div>
 
-    <!-- Quick Links -->
-    <div class="card">
-      <div class="card-title" style="margin-bottom:12px;">Quick Links</div>
-      <div style="display:flex;flex-direction:column;gap:6px;">
-        <a href="<?= Router::url('tenant/bills') ?>" class="btn btn-secondary" style="justify-content:flex-start;">
-          <i class="fa-solid fa-file-invoice"></i> My Bills
-        </a>
-        <a href="<?= Router::url('tenant/complaints') ?>" class="btn btn-secondary" style="justify-content:flex-start;">
-          <i class="fa-solid fa-flag"></i> Submit Complaint
-        </a>
-        <a href="<?= Router::url('tenant/notifications') ?>" class="btn btn-secondary" style="justify-content:flex-start;">
-          <i class="fa-solid fa-bell"></i> Notifications
-        </a>
-        <a href="<?= Router::url('tenant/profile') ?>" class="btn btn-secondary" style="justify-content:flex-start;">
-          <i class="fa-solid fa-user"></i> My Profile
-        </a>
-      </div>
-    </div>
+
   </div>
 
 </div>
