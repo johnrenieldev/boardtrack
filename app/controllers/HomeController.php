@@ -101,8 +101,8 @@ class HomeController extends Controller
             'general' => 'General Question'
         ];
 
-        $supportEmail = defined('MAIL_USERNAME') && !empty(MAIL_USERNAME) ? MAIL_USERNAME : 'jrbalsacao@gmail.com';
-        $supportName  = APP_NAME . ' Contact';
+        $supportEmail = defined('MAIL_FROM') && !empty(MAIL_FROM) ? MAIL_FROM : 'support@bsit2a.com';
+        $supportName  = APP_NAME . ' Support';
 
         require_once ROOT_PATH . '/app/helpers/BoardTrackMail.php';
 

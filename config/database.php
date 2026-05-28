@@ -53,8 +53,8 @@ class Database
             // Log the real error; show a generic message to users
             self::logError($e->getMessage());
 
-            if (APP_ENV === 'development') {
-                die('<pre style="color:red;padding:20px;">
+            // Force display error for debugging
+            die('<pre style="color:red;padding:20px;">
 <strong>Database Connection Failed</strong>
 ' . htmlspecialchars($e->getMessage()) . '
 
@@ -63,9 +63,6 @@ class Database
   2. DB_NAME "' . DB_NAME . '" exists in phpMyAdmin
   3. DB_USER / DB_PASS in config/config.php are correct
 </pre>');
-            } else {
-                die('Service temporarily unavailable. Please try again later.');
-            }
         }
     }
 

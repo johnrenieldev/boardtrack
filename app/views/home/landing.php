@@ -574,8 +574,8 @@ document.getElementById('backToTop').addEventListener('click', function() {
             </div>
             <div>
               <div class="font-bold text-gray-900 text-xs sm:text-sm mb-0.5">Email Address</div>
-              <a href="mailto:jrbalsacao@gmail.com" class="text-brand-600 font-semibold hover:text-brand-700 transition-colors text-xs sm:text-sm">
-                jrbalsacao@gmail.com
+              <a href="mailto:support@bsit2a.com" class="text-brand-600 font-semibold hover:text-brand-700 transition-colors text-xs sm:text-sm">
+                support@bsit2a.com
               </a>
             </div>
           </div>

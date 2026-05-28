@@ -4,6 +4,12 @@
  *
  * Initializes configuration, session security, core dependencies, and routing.
  */
+
+// Force error reporting for Hostinger debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+
 // Load application configuration and constants first.
 require_once dirname(__DIR__) . '/config/config.php';
 // Configure session policy before calling session_start().
