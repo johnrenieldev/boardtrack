@@ -41,8 +41,12 @@ if (!defined('BASE_URL')) {
     $publicPath = str_replace('/index.php', '', $script);
     $detectedUrl = "$protocol://$host$publicPath";
 
+    // Priority: configured > environment variable > Hostinger domain > CLI > auto-detect
     if ($configuredBaseUrl !== '') {
         define('BASE_URL', rtrim($configuredBaseUrl, '/'));
+    } elseif (strpos($host, 'bsit2a.com') !== false) {
+        // Hardcoded for Hostinger production
+        define('BASE_URL', 'https://boardtrack.bsit2a.com');
     } elseif (PHP_SAPI === 'cli' || empty($host)) {
         define('BASE_URL', envValue('APP_BASE_URL_CLI', 'http://localhost/boardtrack/public'));
     } else {
