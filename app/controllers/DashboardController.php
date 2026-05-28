@@ -1,11 +1,11 @@
 <?php
 /**
- * BoardTrack — Dashboard Controller
+ * BoardTrack | Dashboard Controller
  * app/controllers/DashboardController.php
  *
  * Central hub after login.
  * Routes tenant and landlord to their correct dashboard view.
- * All methods are protected — no guest access.
+ * All methods are protected | no guest access.
  */
 
 class DashboardController extends Controller

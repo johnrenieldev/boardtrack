@@ -21,20 +21,42 @@ $availableRooms = $availableRooms ?? [];
 <!-- Stats -->
 <div class="stats-grid">
   <div class="stat-card">
-    <div class="stat-label"><i class="fa-solid fa-users" style="margin-right:4px;"></i> Total</div>
+    <div class="stat-header">
+      <div class="stat-icon-box"><i class="fa-solid fa-users"></i></div>
+      <div class="stat-label">Total Tenants</div>
+    </div>
     <div class="stat-value"><?= count($tenants) ?></div>
+    <div class="stat-footer">Across <span>all statuses</span></div>
   </div>
-  <div class="stat-card">
-    <div class="stat-label"><i class="fa-solid fa-clock" style="margin-right:4px;"></i> Pending</div>
-    <div class="stat-value"><?= count(array_filter($tenants, fn($t) => $t['user_status'] === 'pending')) ?></div>
+  
+  <?php 
+    $pendingCount = count(array_filter($tenants, fn($t) => $t['user_status'] === 'pending'));
+  ?>
+  <div class="stat-card <?= $pendingCount > 0 ? 'urgent' : '' ?>">
+    <div class="stat-header">
+      <div class="stat-icon-box"><i class="fa-solid fa-clock"></i></div>
+      <div class="stat-label">Pending</div>
+    </div>
+    <div class="stat-value"><?= $pendingCount ?></div>
+    <div class="stat-footer">Requires <span>review</span></div>
   </div>
+  
   <div class="stat-card">
-    <div class="stat-label"><i class="fa-solid fa-circle-check" style="margin-right:4px;"></i> Active</div>
-    <div class="stat-value"><?= count(array_filter($tenants, fn($t) => $t['user_status'] === 'active')) ?></div>
+    <div class="stat-header">
+      <div class="stat-icon-box"><i class="fa-solid fa-circle-check"></i></div>
+      <div class="stat-label">Active</div>
+    </div>
+    <div class="stat-value"><?= count(array_filter($tenants, fn($t) => $t['user_status'] === 'approved' && !empty($t['room_id']))) ?></div>
+    <div class="stat-footer">Currently <span>in rooms</span></div>
   </div>
+  
   <div class="stat-card">
-    <div class="stat-label"><i class="fa-solid fa-list-ol" style="margin-right:4px;"></i> Waiting List</div>
-    <div class="stat-value"><?= count(array_filter($tenants, fn($t) => $t['user_status'] === 'waiting_list')) ?></div>
+    <div class="stat-header">
+      <div class="stat-icon-box"><i class="fa-solid fa-list-ol"></i></div>
+      <div class="stat-label">Waiting List</div>
+    </div>
+    <div class="stat-value"><?= count(array_filter($tenants, fn($t) => $t['user_status'] === 'approved' && empty($t['room_id']))) ?></div>
+    <div class="stat-footer">Awaiting <span>assignment</span></div>
   </div>
 </div>
 
@@ -44,13 +66,27 @@ $availableRooms = $availableRooms ?? [];
     <input type="hidden" name="url" value="landlord/tenants">
     <select name="status" class="form-select">
       <option value="">All Statuses</option>
-      <option value="pending" <?= ($filters['status'] ?? '') === 'pending' ? 'selected' : '' ?>>Pending</option>
-      <option value="active" <?= ($filters['status'] ?? '') === 'active' ? 'selected' : '' ?>>Active</option>
+      <option value="pending" <?= ($filters['status'] ?? '') === 'pending' ? 'selected' : '' ?>>All Pending</option>
+      <option value="ready_for_review" <?= ($filters['status'] ?? '') === 'ready_for_review' ? 'selected' : '' ?>>Ready for Review</option>
+      <option value="approved" <?= ($filters['status'] ?? '') === 'approved' ? 'selected' : '' ?>>Approved</option>
+      <option value="active" <?= ($filters['status'] ?? '') === 'active' ? 'selected' : '' ?>>Active (In Room)</option>
       <option value="waiting_list" <?= ($filters['status'] ?? '') === 'waiting_list' ? 'selected' : '' ?>>Waiting List</option>
       <option value="rejected" <?= ($filters['status'] ?? '') === 'rejected' ? 'selected' : '' ?>>Rejected</option>
       <option value="moved_out" <?= ($filters['status'] ?? '') === 'moved_out' ? 'selected' : '' ?>>Moved Out</option>
     </select>
-    <input type="text" name="search" class="form-input" placeholder="Search name or email..." value="<?= htmlspecialchars($filters['search'] ?? '') ?>">
+    <select name="compatibility" class="form-select">
+      <option value="">All Compatibility</option>
+      <option value="excellent" <?= ($filters['compatibility'] ?? '') === 'excellent' ? 'selected' : '' ?>>Best Match (90%+)</option>
+      <option value="good" <?= ($filters['compatibility'] ?? '') === 'good' ? 'selected' : '' ?>>Good Match (75%+)</option>
+      <option value="moderate" <?= ($filters['compatibility'] ?? '') === 'moderate' ? 'selected' : '' ?>>Moderate Match (50%+)</option>
+      <option value="poor" <?= ($filters['compatibility'] ?? '') === 'poor' ? 'selected' : '' ?>>Poor Match (<50%)</option>
+    </select>
+    <select name="gender" class="form-select">
+      <option value="">All Genders</option>
+      <option value="male" <?= ($filters['gender'] ?? '') === 'male' ? 'selected' : '' ?>>Male</option>
+      <option value="female" <?= ($filters['gender'] ?? '') === 'female' ? 'selected' : '' ?>>Female</option>
+    </select>
+    <input type="text" name="search" class="form-input" placeholder="Search name..." value="<?= htmlspecialchars($filters['search'] ?? '') ?>">
     <button type="submit" class="btn btn-outline btn-sm">Filter</button>
     <a href="<?= Router::url('landlord/tenants') ?>" class="btn btn-ghost btn-sm">Clear</a>
   </form>
@@ -70,19 +106,20 @@ $availableRooms = $availableRooms ?? [];
         <thead>
           <tr>
             <th>Tenant</th>
-            <th>Status</th>
+            <th>Gender</th>
+            <th data-col="status">Status</th>
             <th>Room Preference</th>
             <th>Room Assigned</th>
             <th>Registered</th>
-            <th>Actions</th>
+            <th data-col="actions">Actions</th>
           </tr>
         </thead>
         <tbody>
           <?php foreach ($tenants as $tenant): ?>
             <tr>
-              <td>
+              <td data-label="Tenant">
                 <div style="display:flex;align-items:center;gap:10px;">
-                  <div style="width:32px;height:32px;border-radius:var(--radius);background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:0.78rem;flex-shrink:0;">
+                  <div style="width:32px;height:32px;border-radius:var(--radius);background:var(--primary);color:var(--color-surface);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:0.78rem;flex-shrink:0;">
                     <?= strtoupper(substr($tenant['name'], 0, 1)) ?>
                   </div>
                   <div>
@@ -91,35 +128,80 @@ $availableRooms = $availableRooms ?? [];
                   </div>
                 </div>
               </td>
-              <td>
-                <?php
-                  $sBadge = match($tenant['user_status']) {
-                    'active'       => 'badge-active',
-                    'pending'      => 'badge-pending',
-                    'waiting_list' => 'badge-waiting',
-                    'rejected'     => 'badge-rejected',
-                    'moved_out'    => 'badge-normal',
-                    default        => 'badge-normal'
-                  };
-                ?>
-                <span class="badge <?= $sBadge ?>">
-                  <?= ucfirst(str_replace('_', ' ', $tenant['user_status'])) ?>
-                </span>
+              <td data-label="Gender">
+                <div class="flex-center">
+                  <span class="text-xs font-bold text-gray-500 flex items-center gap-1.5">
+                    <i class="fa-solid <?= ($tenant['gender'] ?? '') === 'male' ? 'fa-mars text-blue-500' : 'fa-venus text-pink-500' ?>"></i>
+                    <?= ucfirst($tenant['gender'] ?? '—') ?>
+                  </span>
+                </div>
               </td>
-              <td><?= htmlspecialchars($tenant['room_type_preference'] ?? '—') ?></td>
-              <td><?= !empty($tenant['room_number']) ? htmlspecialchars($tenant['room_number']) : '—' ?></td>
-              <td style="font-size:0.82rem;color:var(--gray-500);"><?= date('M j, Y', strtotime($tenant['registered_at'])) ?></td>
-              <td>
-                <div style="display:flex;align-items:center;gap:4px;">
+              <td data-label="Status" data-col="status">
+                <div class="flex-center">
+                  <?php
+                    $isReady = ($tenant['user_status'] === 'pending' && $tenant['personality_completed'] && !empty($tenant['id_document_path']));
+                    $sBadge = match($tenant['user_status']) {
+                      'approved'     => !empty($tenant['room_id']) ? 'badge-active' : 'badge-waiting',
+                      'pending'      => $isReady ? 'badge-info' : 'badge-pending',
+                      'rejected'     => 'badge-rejected',
+                      'moved_out'    => 'badge-normal',
+                      default        => 'badge-normal'
+                    };
+                    $sLabel = match($tenant['user_status']) {
+                      'approved'     => !empty($tenant['room_id']) ? 'Active' : 'Waiting List',
+                      'pending'      => $isReady ? 'Ready for Review' : 'Incomplete Profile',
+                      default        => ucfirst(str_replace('_', ' ', $tenant['user_status']))
+                    };
+                  ?>
+                  <span class="badge <?= $sBadge ?>">
+                    <?= $sLabel ?>
+                  </span>
+                </div>
+              </td>
+              <td data-label="Room Pref">
+                <div class="flex-center">
+                  <?= ucfirst(htmlspecialchars($tenant['room_type_preference'] ?? '—')) ?>
+                </div>
+              </td>
+              <td data-label="Room">
+                <div class="flex-center">
+                  <?php if (!empty($tenant['room_number'])): ?>
+                    <div style="font-weight:700;color:var(--color-text-primary);">Room <?= htmlspecialchars($tenant['room_number']) ?></div>
+                  <?php elseif (!$tenant['personality_completed']): ?>
+                    <span class="text-[0.65rem] text-warning-600 font-black uppercase tracking-widest">Incomplete Profile</span>
+                  <?php else: ?>
+                    <span class="text-gray-400">—</span>
+                  <?php endif; ?>
+                </div>
+              </td>
+              <td data-label="Registered" style="font-size:0.82rem;color:var(--color-text-secondary);"><?= date('M j, Y', strtotime($tenant['registered_at'])) ?></td>
+              <td data-label="Actions" data-col="actions">
+                <div class="flex-center">
                   <a href="<?= Router::url('landlord/view-tenant/' . $tenant['id']) ?>" class="btn btn-secondary btn-sm btn-icon" title="View Details">
-                    <i class="fa-solid fa-eye"></i>
+                    <i class="fa-solid fa-eye text-xs"></i>
                   </a>
                   <?php if ($tenant['user_status'] === 'pending'): ?>
-                    <button type="button" class="btn btn-success btn-sm btn-icon" onclick="showApproveModal(<?= $tenant['id'] ?>, '<?= htmlspecialchars(addslashes($tenant['name'])) ?>')" title="Approve">
-                      <i class="fa-solid fa-check"></i>
-                    </button>
+                    <?php if ($tenant['personality_completed']): ?>
+                      <button type="button" class="btn btn-success btn-sm btn-icon" onclick="showApproveModal(<?= $tenant['id'] ?>, '<?= htmlspecialchars(addslashes($tenant['name'])) ?>', <?= (int)($tenant['air_conditioned_preference'] ?? 0) ?>)" title="Approve">
+                        <i class="fa-solid fa-check text-xs"></i>
+                      </button>
+                    <?php else: ?>
+                      <button type="button" class="btn btn-secondary btn-sm btn-icon cursor-not-allowed opacity-50" title="Quiz Incomplete" onclick="Swal.fire('Incomplete Profile', 'This tenant has not completed their personality questionnaire yet.', 'warning')">
+                        <i class="fa-solid fa-check text-xs"></i>
+                      </button>
+                    <?php endif; ?>
                     <button type="button" class="btn btn-danger btn-sm btn-icon" onclick="showRejectModal(<?= $tenant['id'] ?>)" title="Reject">
-                      <i class="fa-solid fa-xmark"></i>
+                      <i class="fa-solid fa-xmark text-xs"></i>
+                    </button>
+                  <?php endif; ?>
+                  <?php if ($tenant['user_status'] === 'approved' && !empty($tenant['room_id'])): ?>
+                    <button type="button" class="btn btn-warning btn-sm btn-icon" onclick="showMoveOutModal(<?= $tenant['id'] ?>, '<?= htmlspecialchars(addslashes($tenant['name'])) ?>')" title="Mark as Moved Out">
+                      <i class="fa-solid fa-person-walking-arrow-right text-xs"></i>
+                    </button>
+                  <?php endif; ?>
+                  <?php if ($tenant['user_status'] === 'moved_out'): ?>
+                    <button type="button" class="btn btn-success btn-sm btn-icon" onclick="showUndoMoveOutModal(<?= $tenant['id'] ?>, '<?= htmlspecialchars(addslashes($tenant['name'])) ?>')" title="Undo Move Out">
+                      <i class="fa-solid fa-rotate-left text-xs"></i>
                     </button>
                   <?php endif; ?>
                 </div>
@@ -144,15 +226,30 @@ $availableRooms = $availableRooms ?? [];
           data-action="Approve tenant">
       <input type="hidden" name="tenant_id" id="approveTenantId">
       <div class="modal-body">
-        <p style="margin:0 0 16px;color:var(--gray-600);">You are about to approve <strong id="approveTenantName"></strong>.</p>
+        <p style="margin:0 0 16px;color:var(--color-text-secondary);">You are about to approve <strong id="approveTenantName"></strong>.</p>
         <div class="form-group" style="margin-bottom:0;">
           <label class="form-label">Assign Room (Optional)</label>
-          <select name="room_id" class="form-select">
+          <div style="margin-bottom:10px;">
+            <label class="form-label" style="display:block;margin-bottom:6px;">Air-conditioning Filter</label>
+            <select id="approveRoomAirconFilter" class="form-select">
+              <option value="match" selected>Match tenant preference</option>
+              <option value="any">Any room</option>
+              <option value="1">Air-conditioned only</option>
+              <option value="0">Non-air-conditioned only</option>
+            </select>
+          </div>
+          <select name="room_id" id="approveRoomSelect" class="form-select" onchange="previewCompatibility(this.value, 'approveCompPreview')">
             <option value="">— Add to Waiting List —</option>
             <?php foreach ($availableRooms as $r): ?>
-              <option value="<?= $r['id'] ?>">Room <?= htmlspecialchars($r['room_number']) ?> (<?= ucfirst($r['room_type']) ?>, <?= $r['max_occupants'] - ($r['actual_occupants'] ?? 0) ?> spots)</option>
+              <option
+                value="<?= $r['id'] ?>"
+                data-aircon="<?= !empty($r['air_conditioned']) ? '1' : '0' ?>"
+              >
+                Room <?= htmlspecialchars($r['room_number']) ?> (<?= ucfirst($r['room_type']) ?>, <?= $r['max_occupants'] - ($r['actual_occupants'] ?? 0) ?> spots)
+              </option>
             <?php endforeach; ?>
           </select>
+          <div id="approveCompPreview" class="mt-3" style="display:none;"></div>
           <span class="form-help">Leave empty to add tenant to waiting list instead.</span>
         </div>
       </div>
@@ -189,6 +286,72 @@ $availableRooms = $availableRooms ?? [];
   </div>
 </div>
 
+<!-- Move Out Modal -->
+<div class="modal-overlay" id="moveOutModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Mark Tenant as Moved Out</span>
+      <button class="modal-close" onclick="closeModal('moveOutModal')">&times;</button>
+    </div>
+    <form action="<?= Router::url('landlord/move-out-tenant') ?>" method="POST">
+      <input type="hidden" name="tenant_id" id="moveOutTenantId">
+      <div class="modal-body">
+        <p style="margin:0 0 16px;color:var(--color-text-secondary);">
+          You are about to mark <strong id="moveOutTenantName"></strong> as moved out.
+        </p>
+        <?php if (!empty($_SESSION['move_out_warnings'])): ?>
+          <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:var(--radius);padding:12px;margin-bottom:16px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <i class="fa-solid fa-triangle-exclamation" style="color:#d97706;"></i>
+              <strong style="color:#92400e;">Warning</strong>
+            </div>
+            <ul style="margin:0;padding-left:20px;color:#92400e;font-size:0.88rem;">
+              <?php foreach ($_SESSION['move_out_warnings'] as $warning): ?>
+                <li><?= htmlspecialchars($warning) ?></li>
+              <?php endforeach; ?>
+            </ul>
+          </div>
+        <?php endif; ?>
+        <div class="form-group" style="margin-bottom:0;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:0.88rem;color:var(--color-text-secondary);">
+            <input type="checkbox" name="force_move_out" value="1" style="width:16px;height:16px;">
+            Force move out despite warnings
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('moveOutModal')">Cancel</button>
+        <button type="submit" class="btn btn-warning">Mark as Moved Out</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Undo Move Out Modal -->
+<div class="modal-overlay" id="undoMoveOutModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Undo Move Out</span>
+      <button class="modal-close" onclick="closeModal('undoMoveOutModal')">&times;</button>
+    </div>
+    <form action="<?= Router::url('landlord/undo-move-out') ?>" method="POST"
+          data-confirm="Revert the move-out status for this tenant? They will be marked as active again."
+          data-action="Undo move out">
+      <input type="hidden" name="tenant_id" id="undoMoveOutTenantId">
+      <div class="modal-body">
+        <p style="margin:0;color:var(--color-text-secondary);">
+          You are about to revert the move-out status for <strong id="undoMoveOutTenantName"></strong>.
+          They will be marked as active again and will need to be assigned a room.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('undoMoveOutModal')">Cancel</button>
+        <button type="submit" class="btn btn-success">Undo Move Out</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
 function openModal(id) {
   document.getElementById(id).style.display = 'flex';
@@ -198,14 +361,130 @@ function closeModal(id) {
   document.getElementById(id).style.display = 'none';
   document.body.style.overflow = '';
 }
-function showApproveModal(tenantId, tenantName) {
+function showApproveModal(tenantId, tenantName, tenantAirconPreference) {
   document.getElementById('approveTenantId').value = tenantId;
   document.getElementById('approveTenantName').textContent = tenantName;
+  var filterEl = document.getElementById('approveRoomAirconFilter');
+  if (filterEl) {
+    filterEl.dataset.tenantAirconPref = (tenantAirconPreference ? '1' : '0');
+    filterEl.value = 'match';
+    applyApproveRoomAirconFilter();
+  }
   openModal('approveModal');
+}
+function applyApproveRoomAirconFilter() {
+  var filterEl = document.getElementById('approveRoomAirconFilter');
+  var selectEl = document.getElementById('approveRoomSelect');
+  if (!filterEl || !selectEl) return;
+
+  var filterValue = filterEl.value; // match | any | 1 | 0
+  var tenantPref = (filterEl.dataset.tenantAirconPref === '1') ? 1 : 0;
+
+  for (var i = 0; i < selectEl.options.length; i++) {
+    var opt = selectEl.options[i];
+    if (!opt.value) continue; // keep placeholder
+
+    var optAircon = (opt.getAttribute('data-aircon') === '1') ? 1 : 0;
+    var show = true;
+
+    if (filterValue === 'any') {
+      show = true;
+    } else if (filterValue === 'match') {
+      show = (optAircon === tenantPref);
+    } else if (filterValue === '1') {
+      show = (optAircon === 1);
+    } else if (filterValue === '0') {
+      show = (optAircon === 0);
+    }
+
+    opt.hidden = !show;
+  }
+
+  // If the currently selected option is hidden, clear selection.
+  if (selectEl.value) {
+    var selectedOpt = selectEl.selectedOptions && selectEl.selectedOptions[0] ? selectEl.selectedOptions[0] : null;
+    if (selectedOpt && selectedOpt.hidden) {
+      selectEl.value = '';
+    }
+  }
 }
 function showRejectModal(tenantId) {
   document.getElementById('rejectTenantId').value = tenantId;
   openModal('rejectModal');
+}
+function showMoveOutModal(tenantId, tenantName) {
+  document.getElementById('moveOutTenantId').value = tenantId;
+  document.getElementById('moveOutTenantName').textContent = tenantName;
+  openModal('moveOutModal');
+}
+function showUndoMoveOutModal(tenantId, tenantName) {
+  document.getElementById('undoMoveOutTenantId').value = tenantId;
+  document.getElementById('undoMoveOutTenantName').textContent = tenantName;
+  openModal('undoMoveOutModal');
+}
+
+function previewCompatibility(roomId, containerId) {
+  const container = document.getElementById(containerId);
+  const tenantId = document.getElementById('approveTenantId').value;
+  
+  if (!roomId || !tenantId) {
+    container.style.display = 'none';
+    return;
+  }
+
+  container.innerHTML = '<div class="text-center py-4"><i class="fa-solid fa-spinner fa-spin text-brand-500"></i><p class="text-[0.65rem] font-bold text-gray-400 uppercase tracking-widest mt-2">Calculating Compatibility...</p></div>';
+  container.style.display = 'block';
+
+  fetch('<?= Router::url("landlord/compatibility-preview") ?>&tenant_id=' + tenantId + '&room_id=' + roomId)
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        container.innerHTML = '<div class="p-3 bg-danger-50 text-danger-600 rounded-lg text-xs font-bold">' + data.error + '</div>';
+        return;
+      }
+
+      let reasonsHtml = '';
+      if (data.explanation && data.explanation.length > 0) {
+        reasonsHtml = `
+          <div class="mt-3 pt-3 border-t border-gray-100">
+            <div class="text-[0.65rem] font-bold text-gray-400 uppercase tracking-widest mb-2">Why this match?</div>
+            <div class="space-y-1">
+              ${data.explanation.slice(0, 3).map(reason => `
+                <div class="flex items-center gap-2 text-[0.7rem] font-bold text-gray-700">
+                  <i class="fa-solid fa-check text-success-500"></i>
+                  ${reason}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      container.innerHTML = `
+        <div class="comp-preview-box">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-[0.65rem] font-bold text-gray-400 uppercase tracking-widest">Compatibility Preview</div>
+            <span class="comp-badge comp-badge-${data.color}">${data.status}</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="text-xl font-black text-gray-900">${Math.round(data.score)}%</div>
+            <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div class="h-full bg-${data.color === 'blue' ? 'brand' : (data.color === 'green' ? 'success' : (data.color === 'orange' ? 'warning' : 'danger'))}-500" style="width: ${data.score}%"></div>
+            </div>
+          </div>
+          ${reasonsHtml}
+          ${data.score < 50 ? `
+            <div class="mt-3 p-2 bg-danger-50 border border-danger-100 rounded text-[0.65rem] text-danger-600 font-bold flex items-start gap-2">
+              <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
+              <span>Low compatibility detected. This match may increase roommate conflict.</span>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    })
+    .catch(err => {
+      container.innerHTML = '<div class="p-3 bg-danger-50 text-danger-600 rounded-lg text-xs font-bold">Failed to load preview</div>';
+    });
 }
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
@@ -219,4 +498,26 @@ document.addEventListener('click', function(e) {
     document.body.style.overflow = '';
   }
 });
+
+document.addEventListener('change', function(e) {
+  if (e.target && e.target.id === 'approveRoomAirconFilter') {
+    applyApproveRoomAirconFilter();
+  }
+});
+<?php
+// Auto-open move out modal if there are warnings from the controller
+if (!empty($_SESSION['move_out_warnings']) && !empty($_SESSION['move_out_tenant_id'])):
+  $tenantId = $_SESSION['move_out_tenant_id'];
+  $tenant = $this->model('Tenant')->find($tenantId);
+  if ($tenant):
+?>
+  setTimeout(function() {
+    showMoveOutModal(<?= $tenantId ?>, '<?= htmlspecialchars(addslashes($tenant['name'] ?? '')) ?>');
+  }, 500);
+<?php
+  endif;
+  unset($_SESSION['move_out_warnings']);
+  unset($_SESSION['move_out_tenant_id']);
+endif;
+?>
 </script>

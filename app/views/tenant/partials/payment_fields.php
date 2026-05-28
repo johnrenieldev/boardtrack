@@ -21,11 +21,11 @@ $hasQr = !empty($landlordGcash['has_qr']) && !empty($landlordGcash['qr_url']);
 </div>
 
 <div id="gcashQrSection" style="display:none; margin-bottom: 16px;">
-  <div style="padding: 16px; background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%); border: 1px solid var(--primary-border); border-radius: var(--radius);">
-    <div style="font-weight: 600; color: var(--gray-800); margin-bottom: 8px;">
-      <i class="fa-solid fa-qrcode" style="color: var(--primary);"></i> Scan to pay via GCash
+  <div style="padding: 16px; background: linear-gradient(135deg, var(--color-brand-light) 0%, var(--color-success-light) 100%); border: 1px solid var(--color-brand-border); border-radius: var(--radius);">
+    <div style="font-weight: 600; color: var(--color-text-primary); margin-bottom: 8px;">
+      <i class="fa-solid fa-qrcode" style="color: var(--color-brand);"></i> Scan to pay via GCash
     </div>
-    <p style="font-size: 0.82rem; color: var(--gray-500); margin: 0 0 12px;">
+    <p style="font-size: 0.82rem; color: var(--color-text-secondary); margin: 0 0 12px;">
       Send the exact bill amount to <?= htmlspecialchars($landlordGcash['landlord_name'] ?? 'your landlord') ?>, then upload your GCash receipt below.
     </p>
     <?php if ($hasQr): ?>
@@ -42,7 +42,7 @@ $hasQr = !empty($landlordGcash['has_qr']) && !empty($landlordGcash['qr_url']);
   </div>
 </div>
 
-<div id="cashInstructions" style="display:none; margin-bottom: 16px; padding: 12px 14px; background: var(--gray-50); border-radius: var(--radius); font-size: 0.85rem; color: var(--gray-600);">
+<div id="cashInstructions" style="display:none; margin-bottom: 16px; padding: 12px 14px; background: var(--color-canvas); border-radius: var(--radius); font-size: 0.85rem; color: var(--color-text-secondary);">
   <i class="fa-solid fa-hand-holding-dollar"></i> Pay your landlord in person, then upload a photo of your receipt or signed acknowledgment for verification.
 </div>
 
@@ -51,12 +51,12 @@ $hasQr = !empty($landlordGcash['has_qr']) && !empty($landlordGcash['qr_url']);
   <div class="upload-area" id="uploadZone" onclick="document.getElementById('paymentFile').click()">
     <i class="fa-solid fa-cloud-arrow-up"></i>
     <p id="proofHint">Upload screenshot of GCash receipt or payment proof</p>
-    <p style="font-size:0.75rem;color:var(--gray-400);margin-top:4px;">JPG or PNG, max 2MB</p>
+    <p style="font-size:0.75rem;color:var(--color-text-muted);margin-top:4px;">JPG or PNG, max 2MB</p>
   </div>
   <input type="file" name="payment_proof" id="paymentFile" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required style="display:none" onchange="updatePaymentFileName(this)">
   <div class="form-help" id="fileName"></div>
   <div id="receiptPreview" style="display:none; margin-top: 10px;">
-    <img id="receiptPreviewImg" src="" alt="Receipt preview" style="max-width: 100%; max-height: 180px; border-radius: var(--radius); border: 1px solid var(--gray-200);">
+    <img id="receiptPreviewImg" src="" alt="Receipt preview" style="max-width: 100%; max-height: 180px; border-radius: var(--radius); border: 1px solid var(--color-border);">
   </div>
 </div>
 

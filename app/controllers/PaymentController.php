@@ -1,6 +1,6 @@
 <?php
 /**
- * BoardTrack — PaymentController (legacy routes → landlord)
+ * BoardTrack | PaymentController (legacy routes | landlord)
  */
 class PaymentController extends Controller
 {

@@ -1,30 +1,8 @@
 <?php
 /**
- * BoardTrack — Auth Controller
- * app/controllers/AuthController.php
+ * Authentication controller.
  *
- * UPDATED (Prompt 2) — Google Authenticator 2FA:
- *
- *  REMOVED from login flow:
- *    - OTP email send-and-verify (code kept but marked DEPRECATED)
- *
- *  ADDED:
- *    - loginPost()        → password verify → if 2FA enabled → totp step
- *    - totpVerify()       → GET: show TOTP input form
- *    - totpVerifyPost()   → POST: validate Google Authenticator code
- *    - totpRecovery()     → POST: use a backup recovery code
- *    - setup2FA()         → GET: show QR code + enable-2FA form
- *    - setup2FAInit()     → POST: generate secret + show QR
- *    - setup2FAConfirm()  → POST: user confirms code → enable 2FA
- *    - disable2FA()       → POST: disable 2FA (requires current password + TOTP)
- *    - changePassword()   → GET: show change-password form
- *    - changePasswordPost()→ POST: current password + TOTP required before change
- *
- *  PRESERVED:
- *    - session_regenerate_id() on every auth completion
- *    - guestOnly() guards on all public auth pages
- *    - requireAuth() / requireRole() guards on protected pages
- *    - PDO prepared statements throughout
+ * Handles login, registration, email verification, password reset, and TOTP-based 2FA.
  */
 
 class AuthController extends Controller
@@ -37,13 +15,13 @@ class AuthController extends Controller
         require_once ROOT_PATH . '/app/helpers/TOTP.php';
     }
 
-    // ── Public: Login ─────────────────────────────────────────────────────────
+    // Public login endpoints.
 
     /** GET auth/login */
     public function login(): void
     {
         $this->guestOnly();
-        $this->view('auth/login', ['pageTitle' => 'Sign In — BoardTrack'], 'main');
+        $this->view('auth/login', ['pageTitle' => 'Sign In | BoardTrack'], 'main');
     }
 
     /**
@@ -53,14 +31,15 @@ class AuthController extends Controller
      * Step 2: If 2FA is enabled → store pending_user in session → redirect to TOTP step.
      *         If 2FA is NOT enabled → complete login immediately.
      *
-     * NOTE: 2FA is optional until the landlord or tenant has set it up.
-     *       Once enabled it is enforced on every login.
+     * 2FA is enforced only for accounts with TOTP enabled.
      */
     public function loginPost(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirect('auth/login');
         }
+
+        $this->verifyCsrf();
 
         $email    = trim($_POST['email']    ?? '');
         $password = trim($_POST['password'] ?? '');
@@ -91,7 +70,7 @@ class AuthController extends Controller
             $this->redirect('auth/login');
         }
 
-        // ── 2FA branch ──────────────────────────────────────────────────────
+        // Route to second-factor verification when 2FA is enabled.
         if (!empty($user['totp_enabled'])) {
             // Store the verified-password user in session pending TOTP confirmation.
             // Do NOT regenerate session ID yet — that happens after TOTP is confirmed.
@@ -100,11 +79,11 @@ class AuthController extends Controller
             $this->redirect('auth/totpVerify');
         }
 
-        // ── No 2FA: complete login directly ─────────────────────────────────
+        // Complete login immediately when 2FA is not enabled.
         $this->completeLogin($user);
     }
 
-    // ── Public: TOTP Verify (login flow) ─────────────────────────────────────
+    // Public TOTP verification endpoints.
 
     /** GET auth/totpVerify */
     public function totpVerify(): void
@@ -113,7 +92,7 @@ class AuthController extends Controller
         $this->guard2FAPending();
 
         $this->view('auth/totp_verify', [
-            'pageTitle' => 'Two-Factor Verification — BoardTrack',
+            'pageTitle' => 'Two-Factor Verification | BoardTrack',
         ], 'main');
     }
 
@@ -128,6 +107,7 @@ class AuthController extends Controller
         }
 
         $this->guard2FAPending();
+        $this->verifyCsrf();
 
         $user = $_SESSION['2fa_pending_user'];
         $code = trim($_POST['totp_code'] ?? '');
@@ -159,6 +139,7 @@ class AuthController extends Controller
         }
 
         $this->guard2FAPending();
+        $this->verifyCsrf();
 
         $user         = $_SESSION['2fa_pending_user'];
         $recoveryInput = trim($_POST['recovery_code'] ?? '');
@@ -185,7 +166,7 @@ class AuthController extends Controller
         $this->finalize2FALogin($user);
     }
 
-    // ── Protected: 2FA Setup ──────────────────────────────────────────────────
+    // Authenticated 2FA setup and management endpoints.
 
     /**
      * GET auth/setup2FA
@@ -215,7 +196,7 @@ class AuthController extends Controller
         $layout = ($role === 'landlord') ? 'landlord' : 'tenant';
 
         $this->view('auth/setup_2fa', [
-            'pageTitle'     => 'Two-Factor Authentication Setup — BoardTrack',
+            'pageTitle'     => 'Two-Factor Authentication Setup | BoardTrack',
             'user'          => $user,
             'has2FA'        => (bool) $user['totp_enabled'],
             'pendingSecret' => $pendingSecret,  // only passed to view for manual entry (not QR)
@@ -235,6 +216,7 @@ class AuthController extends Controller
         }
 
         $this->requireAuth();
+        $this->verifyCsrf();
 
         $userId = (int) $_SESSION['user_id'];
 
@@ -258,6 +240,7 @@ class AuthController extends Controller
         }
 
         $this->requireAuth();
+        $this->verifyCsrf();
 
         $userId = (int) $_SESSION['user_id'];
         $code   = trim($_POST['totp_code'] ?? '');
@@ -303,7 +286,7 @@ class AuthController extends Controller
         $layout = ($role === 'landlord') ? 'landlord' : 'tenant';
 
         $this->view('auth/setup_2fa_success', [
-            'pageTitle'     => '2FA Enabled — BoardTrack',
+            'pageTitle'     => '2FA Enabled | BoardTrack',
             'recoveryCodes' => $recoveryCodes,
         ], $layout);
     }
@@ -319,6 +302,7 @@ class AuthController extends Controller
         }
 
         $this->requireAuth();
+        $this->verifyCsrf();
 
         $userId   = (int) $_SESSION['user_id'];
         $password = trim($_POST['current_password'] ?? '');
@@ -350,7 +334,7 @@ class AuthController extends Controller
         $this->redirect('auth/setup2FA');
     }
 
-    // ── Protected: Change Password ────────────────────────────────────────────
+    // Authenticated password update endpoints.
 
     /**
      * GET auth/changePassword
@@ -368,7 +352,7 @@ class AuthController extends Controller
         $has2FA  = (bool) ($user['totp_enabled'] ?? false);
 
         $this->view('auth/change_password', [
-            'pageTitle' => 'Change Password — BoardTrack',
+            'pageTitle' => 'Change Password | BoardTrack',
             'has2FA'    => $has2FA,
         ], $layout);
     }
@@ -388,6 +372,7 @@ class AuthController extends Controller
         }
 
         $this->requireAuth();
+        $this->verifyCsrf();
 
         $userId      = (int) $_SESSION['user_id'];
         $currentPw   = $_POST['current_password'] ?? '';
@@ -441,13 +426,13 @@ class AuthController extends Controller
         $this->redirect($role === 'landlord' ? 'landlord/profile' : 'tenant/profile');
     }
 
-    // ── Public: Register ──────────────────────────────────────────────────────
+    // Public registration endpoints.
 
     /** GET auth/register */
     public function register(): void
     {
         $this->guestOnly();
-        $this->view('auth/register', ['pageTitle' => 'Register — BoardTrack'], 'main');
+        $this->view('auth/register', ['pageTitle' => 'Register | BoardTrack'], 'main');
     }
 
     /** POST auth/registerPost */
@@ -457,11 +442,18 @@ class AuthController extends Controller
             $this->redirect('auth/register');
         }
 
+        $this->verifyCsrf();
+
         $name            = trim($_POST['name']                 ?? '');
         $email           = trim($_POST['email']                ?? '');
         $password        = trim($_POST['password']             ?? '');
         $confirm         = trim($_POST['confirm_password']     ?? '');
+        $gender          = trim($_POST['gender']               ?? '');
         $roomPreference  = trim($_POST['room_type_preference'] ?? '');
+        $airConditionedPreferenceRaw = $_POST['air_conditioned_preference'] ?? null;
+        $airConditionedPreference    = ($airConditionedPreferenceRaw === null || $airConditionedPreferenceRaw === '')
+            ? 0
+            : (int) $airConditionedPreferenceRaw;
         $guardianName    = trim($_POST['guardian_name']         ?? '');
         $guardianEmail   = trim($_POST['guardian_email']        ?? '');
         $guardianPurpose = trim($_POST['guardian_purpose']      ?? '');
@@ -472,6 +464,7 @@ class AuthController extends Controller
             'guardian_name'    => $guardianName,
             'guardian_email'   => $guardianEmail,
             'guardian_purpose' => $guardianPurpose,
+            'air_conditioned_preference' => $airConditionedPreference,
         ];
 
         $errors = [];
@@ -482,7 +475,10 @@ class AuthController extends Controller
         if (empty($password))                           $errors[] = 'Password is required.';
         if (strlen($password) < 8)                      $errors[] = 'Password must be at least 8 characters.';
         if ($password !== $confirm)                     $errors[] = 'Passwords do not match.';
+        if (empty($gender))                             $errors[] = 'Please select your gender.';
+        if (!in_array($gender, ['male', 'female']))     $errors[] = 'Invalid gender selected.';
         if (empty($roomPreference))                     $errors[] = 'Please select a room type preference.';
+        if (!in_array($airConditionedPreference, [0, 1], true)) $errors[] = 'Invalid air-conditioning preference selected.';
         if (empty($guardianName) || strlen($guardianName) < 2) {
             $errors[] = 'Guardian/emergency contact name is required (at least 2 characters).';
         }
@@ -549,6 +545,8 @@ class AuthController extends Controller
         $tenantModel = $this->model('Tenant');
         $profileId = $tenantModel->createProfile($userId, [
             'room_type_preference' => $roomPreference,
+            'gender'               => $gender,
+            'air_conditioned_preference' => $airConditionedPreference,
             'id_document_path'     => $idFilePath,
             'guardian_name'        => $guardianName,
             'guardian_email'       => $guardianEmail,
@@ -560,27 +558,144 @@ class AuthController extends Controller
             $this->redirect('auth/register');
         }
 
-        require_once ROOT_PATH . '/app/helpers/BoardtrackMail.php';
-        BoardtrackMail::registrationReceived($email, $name);
-        BoardtrackMail::guardianRegistrationNotice($guardianEmail, $guardianName, $name, $guardianPurpose);
+        require_once ROOT_PATH . '/app/helpers/BoardTrackMail.php';
+        
+        // Create email verification token
+        $verifyModel = $this->model('EmailVerification');
+        $token = $verifyModel->createToken($userId);
+        
+        BoardTrackMail::verificationEmail($email, $name, $token);
+        BoardTrackMail::registrationReceived($email, $name);
+        BoardTrackMail::guardianRegistrationNotice($guardianEmail, $guardianName, $name, $guardianPurpose);
 
         $auditLog = $this->model('AuditLog');
         $auditLog->log(null, 'tenant_registered', 'user', $userId, null,
             ['email' => $email, 'guardian_email' => $guardianEmail], 'New tenant registration submitted');
 
-        session_regenerate_id(true);
-        $_SESSION['user_id']   = $userId;
-        $_SESSION['user_name'] = $name;
-        $_SESSION['user_role'] = 'tenant';
-
-        $mailNote = BoardtrackMail::isEnabled()
-            ? ' Confirmation emails were sent to you and your emergency contact.'
-            : '';
-        $this->flash('success', 'Account created! Please complete the personality quiz to continue.' . $mailNote);
-        $this->redirect('tenant/personality');
+        $this->flash('success', 'Account created! Please check your email to verify your address before signing in.');
+        $this->redirect('auth/login');
     }
 
-    // ── Logout ────────────────────────────────────────────────────────────────
+    // Email verification endpoints.
+
+    public function verify(string $token = ''): void
+    {
+        if (empty($token)) {
+            $this->flash('error', 'Invalid verification link.');
+            $this->redirect('auth/login');
+        }
+
+        $verifyModel = $this->model('EmailVerification');
+        $userId = $verifyModel->verifyToken($token);
+
+        if (!$userId) {
+            $this->flash('error', 'Verification link is invalid or has expired.');
+            $this->redirect('auth/login');
+        }
+
+        $this->user->updateStatus($userId, 'pending');
+        
+        $user = $this->user->findById($userId);
+        $this->flash('success', 'Email verified successfully! Your account is now pending landlord approval.');
+        $this->redirect('auth/login');
+    }
+
+    // Password recovery endpoints.
+
+    public function forgotPassword(): void
+    {
+        $this->guestOnly();
+        $this->view('auth/forgot-password', ['pageTitle' => 'Forgot Password | BoardTrack'], 'main');
+    }
+
+    public function forgotPasswordPost(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('auth/forgotPassword');
+        }
+
+        $this->verifyCsrf();
+
+        $email = trim($_POST['email'] ?? '');
+        if (empty($email)) {
+            $this->flash('error', 'Email is required.');
+            $this->redirect('auth/forgotPassword');
+        }
+
+        $user = $this->user->findByEmail($email);
+        if ($user) {
+            $resetModel = $this->model('PasswordReset');
+            $token = $resetModel->createToken((int)$user['id']);
+            
+            require_once ROOT_PATH . '/app/helpers/BoardTrackMail.php';
+            BoardTrackMail::passwordReset($user['email'], $user['name'], $token);
+        }
+
+        // Always show success message for security
+        $this->flash('success', 'If an account exists with that email, a password reset link has been sent.');
+        $this->redirect('auth/login');
+    }
+
+    public function resetPassword(string $token = ''): void
+    {
+        if (empty($token)) {
+            $this->flash('error', 'Invalid reset link.');
+            $this->redirect('auth/login');
+        }
+
+        $resetModel = $this->model('PasswordReset');
+        $userId = $resetModel->verifyToken($token);
+
+        if (!$userId) {
+            $this->flash('error', 'Reset link is invalid or has expired.');
+            $this->redirect('auth/login');
+        }
+
+        $this->view('auth/reset-password', [
+            'pageTitle' => 'Reset Password | BoardTrack',
+            'token' => $token
+        ], 'main');
+    }
+
+    public function resetPasswordPost(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('auth/login');
+        }
+
+        $this->verifyCsrf();
+
+        $token     = $_POST['token']            ?? '';
+        $newPw     = $_POST['new_password']      ?? '';
+        $confirmPw = $_POST['confirm_password']  ?? '';
+
+        $resetModel = $this->model('PasswordReset');
+        $userId = $resetModel->verifyToken($token);
+
+        if (!$userId) {
+            $this->flash('error', 'Reset session expired. Please start over.');
+            $this->redirect('auth/forgotPassword');
+        }
+
+        if (strlen($newPw) < 8) {
+            $this->flash('error', 'Password must be at least 8 characters.');
+            $this->redirect('auth/resetPassword/' . $token);
+        }
+
+        if ($newPw !== $confirmPw) {
+            $this->flash('error', 'Passwords do not match.');
+            $this->redirect('auth/resetPassword/' . $token);
+        }
+
+        $hashed = password_hash($newPw, PASSWORD_BCRYPT);
+        $this->user->updatePassword($userId, $hashed);
+        $resetModel->markAsUsed($token);
+
+        $this->flash('success', 'Password reset successfully. You can now log in.');
+        $this->redirect('auth/login');
+    }
+
+    // Logout endpoint.
 
     /** GET auth/logout */
     public function logout(): void
@@ -595,7 +710,7 @@ class AuthController extends Controller
         $this->redirect('auth/login');
     }
 
-    // ── DEPRECATED: Email OTP Flow (kept for reference, NOT used in login) ────
+    // Legacy email OTP endpoints retained for backward compatibility.
     // These methods are intentionally preserved but no longer called.
     // The login flow now uses Google Authenticator (TOTP) exclusively.
     // Remove in Prompt 3 once 2FA is stable.
@@ -606,7 +721,7 @@ class AuthController extends Controller
      */
     public function otpVerify(): void
     {
-        // DEPRECATED: redirects to new TOTP flow if pending user exists
+        // Redirect pending sessions to the active TOTP flow.
         if (isset($_SESSION['2fa_pending_user'])) {
             $this->redirect('auth/totpVerify');
         }
@@ -630,7 +745,7 @@ class AuthController extends Controller
     }
 
     /*
-     * DEPRECATED legacy OTP session logic (reference only — DO NOT restore):
+     * Legacy OTP session cleanup for historical compatibility.
      *
      * // Generate OTP and send via email
      * $otpCode = sprintf('%06d', random_int(0, 999999));
@@ -641,7 +756,7 @@ class AuthController extends Controller
      * $this->redirect('auth/otpVerify');
      */
 
-    // ── Private helpers ───────────────────────────────────────────────────────
+    // Private helpers.
 
     /**
      * Complete login: regenerate session, set session variables, redirect.

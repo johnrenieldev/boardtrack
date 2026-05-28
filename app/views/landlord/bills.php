@@ -21,101 +21,120 @@ $activeTenants = $activeTenants ?? [];
   </div>
 </div>
 
-<div class="stats-grid">
-  <div class="stat-card">
-    <div class="stat-label"><i class="fa-solid fa-file-invoice" style="margin-right:4px;"></i> Total Bills</div>
-    <div class="stat-value"><?= $statistics['total_bills'] ?? 0 ?></div>
+<!-- Stats -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  <div class="card p-4">
+    <div class="text-[0.65rem] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+      <i class="fa-solid fa-file-invoice text-brand-500"></i> Total Bills
+    </div>
+    <div class="text-2xl font-black text-gray-900 leading-none"><?= $statistics['total_bills'] ?? 0 ?></div>
   </div>
-  <div class="stat-card">
-    <div class="stat-label"><i class="fa-solid fa-clock" style="margin-right:4px;"></i> Unpaid</div>
-    <div class="stat-value"><?= $statistics['unpaid'] ?? 0 ?></div>
+  
+  <div class="card p-4">
+    <div class="text-[0.65rem] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+      <i class="fa-solid fa-clock text-warning-500"></i> Unpaid
+    </div>
+    <div class="text-2xl font-black text-gray-900 leading-none"><?= $statistics['unpaid'] ?? 0 ?></div>
   </div>
-  <div class="stat-card">
-    <div class="stat-label"><i class="fa-solid fa-circle-check" style="margin-right:4px;"></i> Paid</div>
-    <div class="stat-value"><?= $statistics['paid'] ?? 0 ?></div>
+  
+  <div class="card p-4">
+    <div class="text-[0.65rem] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+      <i class="fa-solid fa-circle-check text-success-500"></i> Paid
+    </div>
+    <div class="text-2xl font-black text-gray-900 leading-none"><?= $statistics['paid'] ?? 0 ?></div>
   </div>
-  <div class="stat-card">
-    <div class="stat-label"><i class="fa-solid fa-exclamation-circle" style="margin-right:4px;"></i> Overdue</div>
-    <div class="stat-value"><?= $statistics['overdue'] ?? 0 ?></div>
-    <div class="stat-meta">₱<?= number_format($statistics['total_unpaid'] ?? 0, 2) ?> total unpaid</div>
+  
+  <div class="card p-4">
+    <div class="text-[0.65rem] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+      <i class="fa-solid fa-circle-exclamation text-danger-500"></i> Overdue
+    </div>
+    <div class="text-2xl font-black text-gray-900 leading-none"><?= $statistics['overdue'] ?? 0 ?></div>
+    <div class="text-[0.6rem] font-bold text-gray-400 mt-2 uppercase tracking-tighter">₱<?= number_format($statistics['total_unpaid'] ?? 0, 2) ?> total unpaid</div>
   </div>
 </div>
 
-<div class="card" style="margin-bottom:16px;padding:14px 20px;">
+<!-- Filters -->
+<div class="card mb-4 p-4">
   <form method="GET" action="<?= Router::url('landlord/bills') ?>" class="filter-bar" style="margin-bottom:0;">
     <input type="hidden" name="url" value="landlord/bills">
     <select name="status" class="form-select">
       <option value="">All Statuses</option>
       <option value="unpaid" <?= ($filters['status'] ?? '') === 'unpaid' ? 'selected' : '' ?>>Unpaid</option>
-      <option value="pending_verification" <?= ($filters['status'] ?? '') === 'pending_verification' ? 'selected' : '' ?>>Pending Verification</option>
       <option value="paid" <?= ($filters['status'] ?? '') === 'paid' ? 'selected' : '' ?>>Paid</option>
       <option value="overdue" <?= ($filters['status'] ?? '') === 'overdue' ? 'selected' : '' ?>>Overdue</option>
+      <option value="pending_verification" <?= ($filters['status'] ?? '') === 'pending_verification' ? 'selected' : '' ?>>Verification Pending</option>
     </select>
-    <button type="submit" class="btn btn-outline btn-sm">Filter</button>
-    <a href="<?= Router::url('landlord/bills') ?>" class="btn btn-ghost btn-sm">Clear</a>
+    <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+    <a href="<?= Router::url('landlord/bills') ?>" class="btn btn-secondary btn-sm">Clear</a>
   </form>
 </div>
 
-<div class="card">
+<!-- Bills Table -->
+<div class="card overflow-hidden">
   <?php if (empty($bills)): ?>
-    <div class="empty-state">
-      <i class="fa-solid fa-file-invoice"></i>
-      <h3>No bills found</h3>
-      <p>Create a room bill or an individual tenant bill to get started.</p>
+    <div class="p-12 text-center">
+      <i class="fa-solid fa-file-invoice-dollar text-5xl text-gray-200 mb-4"></i>
+      <h3 class="text-lg font-bold text-gray-900">No bills found</h3>
+      <p class="text-gray-500">No bills match the current filters or have been created yet.</p>
     </div>
   <?php else: ?>
-    <div class="table-wrap">
-      <table class="bt-table">
+    <div class="overflow-x-auto">
+      <table class="bt-table w-full">
         <thead>
           <tr>
             <th>Bill Name</th>
-            <th>Type</th>
-            <th>Room</th>
-            <th>Billed To</th>
-            <th>Amount</th>
+            <th>Tenant / Room</th>
+            <th data-col="amount">Amount</th>
             <th>Due Date</th>
-            <th>Status</th>
-            <th>Actions</th>
+            <th data-col="status">Status</th>
+            <th data-col="actions">Actions</th>
           </tr>
         </thead>
-        <tbody>
-          <?php foreach ($bills as $bill):
-            $isIndividual = ($bill['billing_type'] ?? '') === 'individual';
-            $billedTo = $isIndividual
-              ? ($bill['billed_tenant_name'] ?? '—')
-              : ($bill['room_tenant_names'] ?? 'All occupants');
-          ?>
-            <tr>
-              <td class="td-name"><?= htmlspecialchars($bill['bill_name']) ?></td>
-              <td>
-                <span class="badge <?= $isIndividual ? 'badge-info' : 'badge-normal' ?>">
-                  <?= $isIndividual ? 'Individual' : 'Room' ?>
-                </span>
+        <tbody class="divide-y divide-gray-100">
+          <?php foreach ($bills as $bill): ?>
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td data-label="Bill Name" class="text-sm font-bold text-gray-900"><?= htmlspecialchars($bill['bill_name']) ?></td>
+              <td data-label="Tenant / Room">
+                <div class="flex-center">
+                  <div style="text-align:center;">
+                    <div class="text-sm font-medium text-gray-700">
+                      <?= !empty($bill['tenant_name']) ? htmlspecialchars($bill['tenant_name']) : '<span class="text-gray-400 italic">No active tenants</span>' ?>
+                    </div>
+                    <div class="text-xs text-gray-500">Room <?= htmlspecialchars($bill['room_number'] ?? 'N/A') ?></div>
+                  </div>
+                </div>
               </td>
-              <td style="font-weight:600;color:var(--gray-800);">
-                Room <?= htmlspecialchars($bill['room_number'] ?? '—') ?>
+              <td data-label="Amount" data-col="amount" class="text-sm font-bold text-gray-900">
+                <div class="flex-center">₱<?= number_format($bill['amount'], 2) ?></div>
               </td>
-              <td style="color:var(--gray-500);font-size:0.82rem;"><?= htmlspecialchars($billedTo) ?></td>
-              <td style="font-weight:600;color:var(--gray-800);">₱<?= number_format($bill['amount'], 2) ?></td>
-              <td style="font-size:0.82rem;color:var(--gray-500);"><?= date('M j, Y', strtotime($bill['due_date'])) ?></td>
-              <td>
-                <?php
-                  $status = $bill['computed_status'] ?? $bill['status'];
-                  $badgeClass = match($status) {
-                    'paid'                 => 'badge-paid',
-                    'unpaid'               => 'badge-unpaid',
-                    'pending_verification' => 'badge-pv',
-                    'overdue'              => 'badge-overdue',
-                    default                => 'badge-normal'
-                  };
-                ?>
-                <span class="badge <?= $badgeClass ?>"><?= ucfirst(str_replace('_', ' ', $status)) ?></span>
+              <td data-label="Due Date">
+                <div class="flex-center"><?= date('M j, Y', strtotime($bill['due_date'])) ?></div>
               </td>
-              <td>
-                <form action="<?= Router::url('landlord/delete-bill') ?>" method="POST" data-confirm="Delete this bill? This cannot be undone.">
-                  <input type="hidden" name="bill_id" value="<?= $bill['id'] ?>">
-                  <button type="submit" class="btn btn-danger btn-sm btn-icon" title="Delete"><i class="fa-solid fa-trash"></i></button>
-                </form>
+              <td data-label="Status" data-col="status">
+                <div class="flex-center">
+                  <?php
+                    $bBadge = match($bill['status']) {
+                      'paid' => 'bg-success-50 text-success-600 border-success-200',
+                      'unpaid' => 'bg-gray-50 text-gray-600 border-gray-200',
+                      'overdue' => 'bg-danger-50 text-danger-600 border-danger-200',
+                      'pending_verification' => 'bg-warning-50 text-warning-600 border-warning-200',
+                      default => 'bg-gray-50 text-gray-600 border-gray-200'
+                    };
+                  ?>
+                  <span class="inline-flex px-2.5 py-1 rounded-full text-[0.7rem] font-bold uppercase tracking-wider border <?= $bBadge ?>">
+                    <?= str_replace('_', ' ', ucfirst($bill['status'])) ?>
+                  </span>
+                </div>
+              </td>
+              <td data-label="Actions" data-col="actions">
+                <div class="flex-center">
+                  <button type="button" class="w-8 h-8 rounded-md bg-white border border-gray-200 text-brand-600 hover:bg-brand-50 hover:border-brand-200 flex items-center justify-center transition-all shadow-xs" onclick="openEditBillModal(<?= htmlspecialchars(json_encode($bill)) ?>)" title="Edit Bill">
+                    <i class="fa-solid fa-pen text-xs"></i>
+                  </button>
+                  <button type="button" class="w-8 h-8 rounded-md bg-white border border-gray-200 text-danger-600 hover:bg-danger-50 hover:border-danger-200 flex items-center justify-center transition-all shadow-xs" onclick="confirmDeleteBill(<?= $bill['id'] ?>)" title="Delete Bill">
+                    <i class="fa-solid fa-trash-can text-xs"></i>
+                  </button>
+                </div>
               </td>
             </tr>
           <?php endforeach; ?>
@@ -123,6 +142,74 @@ $activeTenants = $activeTenants ?? [];
       </table>
     </div>
   <?php endif; ?>
+</div>
+
+<div class="modal-overlay" id="editBillModal" style="display:none;">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span class="modal-title">Edit Bill</span>
+      <button class="modal-close" onclick="closeModal('editBillModal')">&times;</button>
+    </div>
+    <form action="<?= Router::url('landlord/update-bill') ?>" method="POST" id="editBillForm">
+      <div class="modal-body">
+        <input type="hidden" name="bill_id" id="edit_bill_id">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Bill Name <span class="req">*</span></label>
+            <input type="text" name="bill_name" id="edit_bill_name" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select name="charge_category" id="edit_charge_category" class="form-select">
+              <option value="rent">Rent</option>
+              <option value="utility">Utility</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="penalty">Penalty</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Billing Period Start</label>
+            <input type="date" name="period_start" id="edit_period_start" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Billing Period End</label>
+            <input type="date" name="period_end" id="edit_period_end" class="form-input">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Amount (₱) <span class="req">*</span></label>
+            <input type="number" name="amount" id="edit_amount" class="form-input" step="0.01" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Due Date <span class="req">*</span></label>
+            <input type="date" name="due_date" id="edit_due_date" class="form-input" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select name="status" id="edit_status" class="form-select">
+            <option value="unpaid">Unpaid</option>
+            <option value="paid">Paid</option>
+            <option value="overdue">Overdue</option>
+            <option value="pending_verification">Pending Verification</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" id="edit_notes" class="form-textarea" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('editBillModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Update Bill</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <div class="modal-overlay" id="createBillModal" style="display:none;">
@@ -239,6 +326,19 @@ function openModal(id) {
 function closeModal(id) {
   document.getElementById(id).style.display = 'none';
   document.body.style.overflow = '';
+}
+
+function openEditBillModal(bill) {
+  document.getElementById('edit_bill_id').value = bill.id;
+  document.getElementById('edit_bill_name').value = bill.bill_name;
+  document.getElementById('edit_charge_category').value = bill.charge_category;
+  document.getElementById('edit_period_start').value = bill.billing_period_start;
+  document.getElementById('edit_period_end').value = bill.billing_period_end;
+  document.getElementById('edit_amount').value = bill.amount;
+  document.getElementById('edit_due_date').value = bill.due_date;
+  document.getElementById('edit_status').value = bill.status;
+  document.getElementById('edit_notes').value = bill.notes || '';
+  openModal('editBillModal');
 }
 
 function toggleBillingType(type) {

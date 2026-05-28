@@ -1,6 +1,6 @@
 <?php
 /**
- * BoardTrack — BillController
+ * BoardTrack | BillController
  */
 class BillController extends Controller
 {
@@ -33,7 +33,7 @@ class BillController extends Controller
         $bills = $this->billModel->getAllForLandlord($filters);
         $stats = $this->billModel->getStatistics();
         $this->view('landlord/bills', [
-            'pageTitle'     => 'Billing — BoardTrack',
+            'pageTitle'     => 'Billing | BoardTrack',
             'bills'         => $bills,
             'stats'         => $stats,
             'statistics'    => $stats,
@@ -56,7 +56,7 @@ class BillController extends Controller
         }
         $roomId = !empty($tenant['room_id']) ? (int) $tenant['room_id'] : null;
         $this->view('tenant/bills', [
-            'pageTitle'  => 'My Bills — BoardTrack',
+            'pageTitle'  => 'My Bills | BoardTrack',
             'bills'      => $this->billModel->getForTenant((int) $tenant['id'], $roomId),
             'statistics' => $this->billModel->getTenantBillStatistics((int) $tenant['id'], $roomId),
         ], 'tenant');

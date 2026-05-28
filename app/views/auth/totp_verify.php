@@ -28,7 +28,6 @@ if (!$user) {
         Your account is protected by 2FA. Please enter the code from your authenticator app to continue.
       </p>
     </div>
-    <div class="text-gray-600 text-xs">For Academic Use Only</div>
   </div>
 
   <!-- Right form panel -->
@@ -52,6 +51,7 @@ if (!$user) {
       <?php endif; ?>
 
       <form action="<?= Router::url('auth/totpVerifyPost') ?>" method="POST">
+        <input type="hidden" name="csrf_token" value="<?= $this->csrf() ?>">
         <div class="mb-6">
           <label class="auth-label" for="totp_code">Authenticator Code</label>
           <input class="auth-input font-mono text-center text-lg tracking-widest" type="text" id="totp_code" name="totp_code"
@@ -66,6 +66,7 @@ if (!$user) {
           Can't access your authenticator app?
         </p>
         <form action="<?= Router::url('auth/totpRecovery') ?>" method="POST">
+          <input type="hidden" name="csrf_token" value="<?= $this->csrf() ?>">
           <div class="mb-4">
             <label class="auth-label" for="recovery_code">Recovery Code</label>
             <input class="auth-input font-mono" type="text" id="recovery_code" name="recovery_code"

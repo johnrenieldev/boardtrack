@@ -1,6 +1,6 @@
 <?php
 /**
- * BoardTrack — PersonalityController (Phase 1 Fixed)
+ * BoardTrack | PersonalityController (Phase 1 Fixed)
  * Tenant personality questionnaire for roommate matching.
  */
 class PersonalityController extends Controller
@@ -25,17 +25,15 @@ class PersonalityController extends Controller
      */
     public function personality(): void
     {
-        if ($_SESSION['user_role'] !== 'tenant') {
-            $this->redirect('landlord/tenants');
-        }
-        $tenant = $this->tenantModel->findByUserId((int)$_SESSION['user_id']);
-        if (!$tenant || $tenant['personality_completed']) {
+        $tenant = $this->requireTenantProfile();
+        
+        if ($tenant['personality_completed']) {
             $this->flash('info', 'Personality questionnaire already completed.');
             $this->redirect('tenant/dashboard');
         }
         $questions = $this->personalityModel->getAllQuestions();
         $this->view('tenant/personality', [
-            'pageTitle' => 'Personality Questionnaire — BoardTrack',
+            'pageTitle' => 'Personality Questionnaire | BoardTrack',
             'questions' => $questions,
         ], 'tenant');
     }
@@ -44,29 +42,45 @@ class PersonalityController extends Controller
      */
     public function submitPersonality(): void
     {
-        if ($_SESSION['user_role'] !== 'tenant' || $_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirect('tenant/personality');
-        }
-        $tenant = $this->tenantModel->findByUserId((int)$_SESSION['user_id']);
-        if (!$tenant || $tenant['personality_completed']) {
+        try {
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                $this->redirect('tenant/personality');
+            }
+            
+            $tenant = $this->requireTenantProfile();
+            
+            if ($tenant['personality_completed']) {
+                $this->redirect('tenant/dashboard');
+            }
+            $answers = $_POST['answers'] ?? [];
+            if (empty($answers) || count($answers) < 10) {
+                $this->flash('error', 'Please answer all questions.');
+                $this->redirect('tenant/personality');
+            }
+            // Save answers
+            foreach ($answers as $qid => $answer) {
+                $this->personalityModel->saveAnswer($tenant['id'], (int)$qid, (int)$answer);
+            }
+            // Mark complete and check suspicious patterns
+            $this->tenantModel->markPersonalityCompleted($tenant['id']);
+            
+            // Refresh compatibility cache for this tenant
+            try {
+                require_once APP_PATH . '/services/CompatibilityService.php';
+                $compatibilityService = new CompatibilityService();
+                $compatibilityService->refreshTenantCache($tenant['id']);
+            } catch (Throwable $e) {
+                error_log("Compatibility cache refresh failed: " . $e->getMessage());
+            }
+
+            if ($this->personalityModel->checkSuspiciousPattern($tenant['id'])) {
+                $this->tenantModel->flagPersonality($tenant['id'], 'Suspicious answer pattern detected');
+            }
+            $this->flash('success', 'Questionnaire completed. Awaiting approval.');
             $this->redirect('tenant/dashboard');
+        } catch (Throwable $e) {
+            die("Fatal Error: " . $e->getMessage() . " in " . $e->getFile() . " on line " . $e->getLine());
         }
-        $answers = $_POST['answers'] ?? [];
-        if (empty($answers) || count($answers) < 10) {
-            $this->flash('error', 'Please answer all questions.');
-            $this->redirect('tenant/personality');
-        }
-        // Save answers
-        foreach ($answers as $qid => $answer) {
-            $this->personalityModel->saveAnswer($tenant['id'], (int)$qid, (int)$answer);
-        }
-        // Mark complete and check suspicious patterns
-        $this->tenantModel->markPersonalityCompleted($tenant['id']);
-        if ($this->personalityModel->checkSuspiciousPattern($tenant['id'])) {
-            $this->tenantModel->flagPersonality($tenant['id'], 'Suspicious answer pattern detected');
-        }
-        $this->flash('success', 'Questionnaire completed. Awaiting approval.');
-        $this->redirect('tenant/dashboard');
     }
 }
 ?>

@@ -12,7 +12,7 @@ unset($_SESSION['form_old']);
 <div class="min-h-screen flex">
 
   <!-- Left panel -->
-  <div class="hidden lg:flex flex-col justify-between w-80 bg-gray-900 p-10">
+  <div class="hidden lg:flex flex-col justify-between w-80 bg-gray-900 p-10 fixed h-screen left-0 top-0">
     <div>
       <div class="font-heading font-bold text-2xl text-white mb-1">Board<span class="text-brand-500">Track</span></div>
       <div class="text-gray-400 text-sm">Boarding House Management</div>
@@ -29,15 +29,14 @@ unset($_SESSION['form_old']);
       </div>
       <?php endforeach; ?>
     </div>
-    <div class="text-gray-600 text-xs">For Academic Use Only</div>
   </div>
 
   <!-- Form panel -->
-  <div class="flex-1 flex items-start justify-center p-6 bg-gray-50 overflow-y-auto py-10">
+  <div class="flex-1 flex items-start justify-center p-6 bg-gray-50 overflow-y-auto py-10 lg:ml-80">
     <div class="w-full max-w-md">
 
       <a href="<?= Router::url('home/index') ?>" class="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 mb-6">
-        <i class="fa-solid fa-arrow-left text-xs"></i> Back to home
+        <i class="fa-solid fa-arrow-left text-xs"></i> Back
       </a>
 
       <h1 class="font-heading font-bold text-2xl text-gray-900 mb-1">Create tenant account</h1>
@@ -45,14 +44,17 @@ unset($_SESSION['form_old']);
 
       <?php if (!empty($errors)): ?>
         <?php foreach ($errors as $f): ?>
-          <div class="alert-public <?= $f['type'] === 'error' ? 'error' : 'success' ?>">
-            <i class="fa-solid <?= $f['type'] === 'error' ? 'fa-circle-xmark' : 'fa-circle-check' ?> flex-shrink-0"></i>
-            <?= htmlspecialchars($f['message']) ?>
-          </div>
+          <?php if (empty($f['field'])): ?>
+            <div class="alert-public <?= $f['type'] === 'error' ? 'error' : 'success' ?>">
+              <i class="fa-solid <?= $f['type'] === 'error' ? 'fa-circle-xmark' : 'fa-circle-check' ?> flex-shrink-0"></i>
+              <?= htmlspecialchars($f['message']) ?>
+            </div>
+          <?php endif; ?>
         <?php endforeach; ?>
       <?php endif; ?>
 
       <form action="<?= Router::url('auth/registerPost') ?>" method="POST" enctype="multipart/form-data" novalidate>
+        <input type="hidden" name="csrf_token" value="<?= $this->csrf() ?>">
 
         <!-- Name -->
         <div class="mb-4">
@@ -60,6 +62,9 @@ unset($_SESSION['form_old']);
           <input class="auth-input" type="text" id="name" name="name"
                  value="<?= htmlspecialchars($old['name'] ?? '') ?>"
                  placeholder="e.g. Juan dela Cruz" required minlength="3">
+          <?php if (!empty($errors['name'])): ?>
+            <div class="form-error"><?= htmlspecialchars($errors['name']['message']) ?></div>
+          <?php endif; ?>
         </div>
 
         <!-- Email -->
@@ -68,6 +73,9 @@ unset($_SESSION['form_old']);
           <input class="auth-input" type="email" id="email" name="email"
                  value="<?= htmlspecialchars($old['email'] ?? '') ?>"
                  placeholder="you@example.com" required>
+          <?php if (!empty($errors['email'])): ?>
+            <div class="form-error"><?= htmlspecialchars($errors['email']['message']) ?></div>
+          <?php endif; ?>
         </div>
 
         <!-- Password -->
@@ -82,6 +90,9 @@ unset($_SESSION['form_old']);
               <i class="fa-solid fa-eye text-sm" id="ei1"></i>
             </button>
           </div>
+          <?php if (!empty($errors['password'])): ?>
+            <div class="form-error"><?= htmlspecialchars($errors['password']['message']) ?></div>
+          <?php endif; ?>
           <div class="mt-1.5 h-1 bg-gray-200 rounded" id="strengthBar"></div>
           <p class="text-xs text-gray-400 mt-1" id="strengthLabel"></p>
         </div>
@@ -98,7 +109,36 @@ unset($_SESSION['form_old']);
               <i class="fa-solid fa-eye text-sm" id="ei2"></i>
             </button>
           </div>
+          <?php if (!empty($errors['confirm_password'])): ?>
+            <div class="form-error"><?= htmlspecialchars($errors['confirm_password']['message']) ?></div>
+          <?php endif; ?>
           <p class="text-xs mt-1" id="matchMsg"></p>
+        </div>
+
+        <!-- Gender Selection -->
+        <div class="mb-4">
+          <label class="auth-label">Gender <span class="text-red-500">*</span></label>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="flex items-center gap-3 border border-gray-300 rounded-md p-3 cursor-pointer hover:border-brand-500 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 transition-colors">
+              <input type="radio" name="gender" value="male" required class="accent-brand-600"
+                     <?= ($old['gender'] ?? '') === 'male' ? 'checked' : '' ?>>
+              <div>
+                <div class="text-sm font-semibold text-gray-900">Male</div>
+                <div class="text-xs text-gray-400">Male tenant</div>
+              </div>
+            </label>
+            <label class="flex items-center gap-3 border border-gray-300 rounded-md p-3 cursor-pointer hover:border-brand-500 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 transition-colors">
+              <input type="radio" name="gender" value="female" class="accent-brand-600"
+                     <?= ($old['gender'] ?? '') === 'female' ? 'checked' : '' ?>>
+              <div>
+                <div class="text-sm font-semibold text-gray-900">Female</div>
+                <div class="text-xs text-gray-400">Female tenant</div>
+              </div>
+            </label>
+          </div>
+          <?php if (!empty($errors['gender'])): ?>
+            <div class="form-error"><?= htmlspecialchars($errors['gender']['message']) ?></div>
+          <?php endif; ?>
         </div>
 
         <!-- Guardian / emergency contact -->
@@ -149,6 +189,40 @@ unset($_SESSION['form_old']);
               <div>
                 <div class="text-sm font-semibold text-gray-900">Shared Room</div>
                 <div class="text-xs text-gray-400">With compatible roommates</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Air-conditioning preference -->
+        <div class="mb-4">
+          <label class="auth-label">Air-Conditioned Room Preference</label>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="flex items-center gap-3 border border-gray-300 rounded-md p-3 cursor-pointer hover:border-brand-500 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 transition-colors">
+              <input
+                type="radio"
+                name="air_conditioned_preference"
+                value="1"
+                required
+                class="accent-brand-600"
+                <?= ((string)($old['air_conditioned_preference'] ?? '0')) === '1' ? 'checked' : '' ?>
+              >
+              <div>
+                <div class="text-sm font-semibold text-gray-900">Air-conditioned</div>
+                <div class="text-xs text-gray-400">Preferred comfort with A/C</div>
+              </div>
+            </label>
+            <label class="flex items-center gap-3 border border-gray-300 rounded-md p-3 cursor-pointer hover:border-brand-500 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 transition-colors">
+              <input
+                type="radio"
+                name="air_conditioned_preference"
+                value="0"
+                class="accent-brand-600"
+                <?= ((string)($old['air_conditioned_preference'] ?? '0')) === '0' ? 'checked' : '' ?>
+              >
+              <div>
+                <div class="text-sm font-semibold text-gray-900">Not required</div>
+                <div class="text-xs text-gray-400">Ok without A/C</div>
               </div>
             </label>
           </div>

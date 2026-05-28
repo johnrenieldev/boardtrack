@@ -21,25 +21,44 @@ $filters    = $filters    ?? [];
 <!-- Stats -->
 <div class="stats-grid">
   <div class="stat-card">
-    <div class="stat-label"><i class="fa-solid fa-credit-card" style="margin-right:4px;"></i> Total</div>
+    <div class="stat-header">
+      <div class="stat-icon-box"><i class="fa-solid fa-credit-card"></i></div>
+      <div class="stat-label">Total Payments</div>
+    </div>
     <div class="stat-value"><?= $statistics['total'] ?? 0 ?></div>
+    <div class="stat-footer">Across <span>all time</span></div>
   </div>
-  <div class="stat-card">
-    <div class="stat-label"><i class="fa-solid fa-clock" style="margin-right:4px;"></i> Pending</div>
+
+  <div class="stat-card <?= ($statistics['pending'] ?? 0) > 0 ? 'urgent' : '' ?>">
+    <div class="stat-header">
+      <div class="stat-icon-box"><i class="fa-solid fa-clock"></i></div>
+      <div class="stat-label">Pending Review</div>
+    </div>
     <div class="stat-value"><?= $statistics['pending'] ?? 0 ?></div>
+    <div class="stat-footer">Requires <span>verification</span></div>
   </div>
+
   <div class="stat-card">
-    <div class="stat-label"><i class="fa-solid fa-circle-check" style="margin-right:4px;"></i> Approved</div>
+    <div class="stat-header">
+      <div class="stat-icon-box"><i class="fa-solid fa-circle-check"></i></div>
+      <div class="stat-label">Approved</div>
+    </div>
     <div class="stat-value"><?= $statistics['approved'] ?? 0 ?></div>
+    <div class="stat-footer">Successfully <span>verified</span></div>
   </div>
+
   <div class="stat-card">
-    <div class="stat-label"><i class="fa-solid fa-circle-xmark" style="margin-right:4px;"></i> Rejected</div>
+    <div class="stat-header">
+      <div class="stat-icon-box"><i class="fa-solid fa-circle-xmark"></i></div>
+      <div class="stat-label">Rejected</div>
+    </div>
     <div class="stat-value"><?= $statistics['rejected'] ?? 0 ?></div>
+    <div class="stat-footer">Invalid <span>submissions</span></div>
   </div>
 </div>
 
 <!-- Filters -->
-<div class="card" style="margin-bottom:16px;padding:14px 20px;">
+<div class="card mb-4 p-4">
   <form method="GET" action="<?= Router::url('landlord/payments') ?>" class="filter-bar" style="margin-bottom:0;">
     <input type="hidden" name="url" value="landlord/payments">
     <select name="status" class="form-select">
@@ -54,77 +73,89 @@ $filters    = $filters    ?? [];
 </div>
 
 <!-- Payments Table -->
-<div class="card">
+<div class="card overflow-hidden">
   <?php if (empty($payments)): ?>
-    <div class="empty-state">
-      <i class="fa-solid fa-credit-card"></i>
-      <h3>No payments found</h3>
-      <p>No payments match the current filters.</p>
+    <div class="p-12 text-center">
+      <i class="fa-solid fa-credit-card text-5xl text-gray-200 mb-4"></i>
+      <h3 class="text-lg font-bold text-gray-900">No payments found</h3>
+      <p class="text-gray-500">No payments match the current filters.</p>
     </div>
   <?php else: ?>
-    <div class="table-wrap">
-      <table class="bt-table">
+    <div class="overflow-x-auto">
+      <table class="bt-table w-full">
         <thead>
           <tr>
             <th>Tenant</th>
             <th>Bill</th>
-            <th>Amount Paid</th>
+            <th data-col="amount">Amount Paid</th>
             <th>Date Submitted</th>
             <th>Proof</th>
-            <th>Status</th>
-            <th>Actions</th>
+            <th data-col="status">Status</th>
+            <th data-col="actions">Actions</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody class="divide-y divide-gray-100">
           <?php foreach ($payments as $payment): ?>
-            <tr>
-              <td>
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td data-label="Tenant">
                 <div style="display:flex;align-items:center;gap:10px;">
-                  <div style="width:32px;height:32px;border-radius:var(--radius);background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:0.78rem;flex-shrink:0;">
+                  <div style="width:32px;height:32px;border-radius:var(--radius);background:var(--primary);color:var(--color-surface);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:0.78rem;flex-shrink:0;">
                     <?= strtoupper(substr($payment['tenant_name'], 0, 1)) ?>
                   </div>
                   <div>
-                    <div class="td-name"><?= htmlspecialchars($payment['tenant_name']) ?></div>
-                    <div class="td-sub">Room <?= htmlspecialchars($payment['room_number'] ?? 'N/A') ?></div>
+                    <div class="text-sm font-bold text-gray-900"><?= htmlspecialchars($payment['tenant_name']) ?></div>
+                    <div class="text-xs text-gray-500 font-medium">Room <?= htmlspecialchars($payment['room_number'] ?? 'N/A') ?></div>
                   </div>
                 </div>
               </td>
-              <td><?= htmlspecialchars($payment['bill_name']) ?></td>
-              <td style="font-weight:600;color:var(--gray-800);">₱<?= number_format($payment['amount'], 2) ?></td>
-              <td style="font-size:0.82rem;color:var(--gray-500);"><?= date('M j, Y', strtotime($payment['payment_date'])) ?></td>
-              <td>
-                <?php if (!empty($payment['proof_file'])): ?>
-                  <button type="button" class="btn btn-secondary btn-sm" onclick="showProofModal('<?= Router::upload('payments', $payment['proof_file']) ?>')">
-                    <i class="fa-solid fa-image"></i> View
-                  </button>
-                <?php else: ?>
-                  <span style="color:var(--gray-400);font-size:0.82rem;">None</span>
-                <?php endif; ?>
+              <td data-label="Bill">
+                <div class="flex-center">
+                  <?= htmlspecialchars($payment['bill_name']) ?>
+                </div>
               </td>
-              <td>
-                <?php
-                  $pBadge = match($payment['status']) {
-                    'approved' => 'badge-approved',
-                    'pending'  => 'badge-pending',
-                    'rejected' => 'badge-rejected',
-                    default    => 'badge-normal'
-                  };
-                ?>
-                <span class="badge <?= $pBadge ?>">
-                  <?= ucfirst($payment['status']) ?>
-                </span>
+              <td data-label="Amount" data-col="amount" class="text-sm font-bold text-gray-900">
+                <div class="flex-center">₱<?= number_format($payment['amount'], 2) ?></div>
               </td>
-              <td>
-                <div style="display:flex;align-items:center;gap:4px;">
-                  <a href="<?= Router::url('landlord/view-payment/' . $payment['id']) ?>" class="btn btn-secondary btn-sm btn-icon" title="View Details">
-                    <i class="fa-solid fa-eye"></i>
+              <td data-label="Date">
+                <div class="flex-center"><?= date('M j, Y', strtotime($payment['payment_date'])) ?></div>
+              </td>
+              <td data-label="Proof">
+                <div class="flex-center">
+                  <?php if (!empty($payment['proof_file'])): ?>
+                    <button type="button" class="btn btn-secondary btn-sm flex items-center gap-2" onclick="showProofModal('<?= Router::upload('payments', $payment['proof_file']) ?>')">
+                      <i class="fa-solid fa-image text-xs"></i> View
+                    </button>
+                  <?php else: ?>
+                    <span class="text-xs text-gray-400">None</span>
+                  <?php endif; ?>
+                </div>
+              </td>
+              <td data-label="Status" data-col="status">
+                <div class="flex-center">
+                  <?php
+                    $pBadge = match($payment['status']) {
+                      'approved' => 'bg-success-50 text-success-600 border-success-200',
+                      'pending'  => 'bg-warning-50 text-warning-600 border-warning-200',
+                      'rejected' => 'bg-danger-50 text-danger-600 border-danger-200',
+                      default    => 'bg-gray-50 text-gray-600 border-gray-200'
+                    };
+                  ?>
+                  <span class="inline-flex px-2.5 py-1 rounded-full text-[0.7rem] font-bold uppercase tracking-wider border <?= $pBadge ?>">
+                    <?= ucfirst($payment['status']) ?>
+                  </span>
+                </div>
+              </td>
+              <td data-label="Actions" data-col="actions">
+                <div class="flex-center">
+                  <a href="<?= Router::url('landlord/view-payment/' . $payment['id']) ?>" class="w-8 h-8 rounded-md bg-white border border-gray-200 text-gray-600 hover:text-brand-600 hover:border-brand-200 flex items-center justify-center transition-all shadow-xs" title="View Details">
+                    <i class="fa-solid fa-eye text-xs"></i>
                   </a>
                   <?php if ($payment['status'] === 'pending'): ?>
-                    <button type="button" class="btn btn-success btn-sm btn-icon" onclick="showApprovePaymentModal(<?= $payment['id'] ?>, '<?= htmlspecialchars(addslashes($payment['tenant_name'])) ?>', <?= $payment['amount'] ?>)" title="Approve">
-                      <i class="fa-solid fa-check"></i>
+                    <button type="button" class="w-8 h-8 rounded-md bg-white border border-gray-200 text-success-600 hover:bg-success-50 hover:border-success-200 flex items-center justify-center transition-all shadow-xs" onclick="showApprovePaymentModal(<?= $payment['id'] ?>, '<?= htmlspecialchars(addslashes($payment['tenant_name'])) ?>', <?= $payment['amount'] ?>)" title="Approve">
+                      <i class="fa-solid fa-check text-xs"></i>
                     </button>
-                    <button type="button" class="btn btn-danger btn-sm btn-icon" onclick="showRejectPaymentModal(<?= $payment['id'] ?>)" title="Reject">
-                      <i class="fa-solid fa-xmark"></i>
+                    <button type="button" class="w-8 h-8 rounded-md bg-white border border-gray-200 text-danger-600 hover:bg-danger-50 hover:border-danger-200 flex items-center justify-center transition-all shadow-xs" onclick="showRejectPaymentModal(<?= $payment['id'] ?>)" title="Reject">
+                      <i class="fa-solid fa-xmark text-xs"></i>
                     </button>
                   <?php endif; ?>
                 </div>
@@ -144,8 +175,8 @@ $filters    = $filters    ?? [];
       <span class="modal-title">Payment Proof</span>
       <button class="modal-close" onclick="closeModal('proofModal')">&times;</button>
     </div>
-    <div class="modal-body" style="text-align:center;">
-      <img id="proofImage" src="" alt="Payment Proof" style="max-width:100%;border-radius:var(--radius);border:1px solid var(--gray-200);">
+    <div class="modal-body" style="text-align:center; display: flex; align-items: center; justify-content: center; min-height: 300px;">
+      <img id="proofImage" src="" alt="Payment Proof" style="max-width:100%; max-height:70vh; object-fit:contain; border-radius:var(--radius); border:1px solid var(--gray-200);">
     </div>
     <div class="modal-footer">
       <button type="button" class="btn btn-secondary" onclick="closeModal('proofModal')">Close</button>

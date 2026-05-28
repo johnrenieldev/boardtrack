@@ -1,6 +1,6 @@
 <?php
 /**
- * BoardTrack — RoomController (Phase 1 Fixed/Completed)
+ * BoardTrack | RoomController (Phase 1 Fixed/Completed)
  * Full room management for landlords.
  */
 class RoomController extends Controller
@@ -19,10 +19,19 @@ class RoomController extends Controller
      */
     public function rooms(): void
     {
-        $rooms = $this->roomModel->getAllWithOccupancy();
+        $filters = [
+            'air_conditioned' => $_GET['air_conditioned'] ?? null,
+            'allowed_gender'  => $_GET['allowed_gender']  ?? null,
+        ];
+        $rooms = $this->roomModel->getAllWithOccupancy($filters);
+        
+        $statistics = $this->roomModel->getStatistics();
+        
         $this->view('landlord/rooms', [
-            'pageTitle' => 'Rooms — BoardTrack',
-            'rooms'     => $rooms,
+            'pageTitle'  => 'Rooms | BoardTrack',
+            'rooms'      => $rooms,
+            'filters'    => $filters,
+            'statistics' => $statistics,
         ], 'landlord');
     }
     /**
@@ -34,14 +43,18 @@ class RoomController extends Controller
             $this->redirect('landlord/rooms');
         }
         $data = [
-            'room_number'   => trim($_POST['room_number'] ?? ''),
-            'floor'         => (int)($_POST['floor'] ?? 1),
-            'room_type'     => $_POST['room_type'] ?? 'single',
-            'max_occupants' => (int)($_POST['max_occupants'] ?? 1),
-            'monthly_rent'  => (float)($_POST['monthly_rent'] ?? 0),
-            'status'        => 'available',
-            'description'   => trim($_POST['description'] ?? ''),
+            'room_number'    => trim($_POST['room_number'] ?? ''),
+            'floor'          => (int)($_POST['floor'] ?? 1),
+            'room_type'      => $_POST['room_type'] ?? 'single',
+            'allowed_gender' => $_POST['allowed_gender'] ?? 'any',
+            'max_occupants'  => (int)($_POST['max_occupants'] ?? 1),
+            'monthly_rent'   => (float)($_POST['monthly_rent'] ?? 0),
+            'status'         => 'available',
+            'description'    => trim($_POST['description'] ?? ''),
         ];
+        if ($this->roomModel->hasColumn('air_conditioned')) {
+            $data['air_conditioned'] = !empty($_POST['air_conditioned']) ? 1 : 0;
+        }
         if (empty($data['room_number']) || $data['monthly_rent'] <= 0) {
             $this->flash('error', 'Room number and valid rent required.');
             $this->redirect('landlord/rooms');
@@ -72,13 +85,18 @@ class RoomController extends Controller
             $this->redirect('landlord/rooms');
         }
         $data = [
-            'floor'         => (int)($_POST['floor'] ?? $room['floor']),
-            'room_type'     => $_POST['room_type'] ?? $room['room_type'],
-            'max_occupants' => (int)($_POST['max_occupants'] ?? $room['max_occupants']),
-            'monthly_rent'  => (float)($_POST['monthly_rent'] ?? $room['monthly_rent']),
-            'status'        => $_POST['status'] ?? $room['status'],
-            'description'   => trim($_POST['description'] ?? $room['description']),
+            'room_number'    => trim($_POST['room_number'] ?? $room['room_number']),
+            'floor'          => (int)($_POST['floor'] ?? $room['floor']),
+            'room_type'      => $_POST['room_type'] ?? $room['room_type'],
+            'allowed_gender' => $_POST['allowed_gender'] ?? $room['allowed_gender'] ?? 'any',
+            'max_occupants'  => (int)($_POST['max_occupants'] ?? $room['max_occupants']),
+            'monthly_rent'   => (float)($_POST['monthly_rent'] ?? $room['monthly_rent']),
+            'status'         => $_POST['status'] ?? $room['status'],
+            'description'    => trim($_POST['description'] ?? $room['description']),
         ];
+        if ($this->roomModel->hasColumn('air_conditioned')) {
+            $data['air_conditioned'] = !empty($_POST['air_conditioned']) ? 1 : 0;
+        }
         if ($data['max_occupants'] < 1) { $this->flash('error', 'Max occupants must be at least 1.'); $this->redirect('landlord/rooms'); }
         if ($data['monthly_rent'] <= 0) { $this->flash('error', 'Monthly rent must be greater than zero.'); $this->redirect('landlord/rooms'); }
         $this->roomModel->update($data, ['id' => $id]);
@@ -89,6 +107,40 @@ class RoomController extends Controller
         $this->flash('success', 'Room updated.');
         $this->redirect('landlord/rooms');
     }
+
+    /**
+     * LANDLORD: Delete room
+     */
+    public function deleteRoom(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('landlord/rooms');
+        }
+        $roomId = (int)($_POST['room_id'] ?? 0);
+        $room   = $this->roomModel->find($roomId);
+
+        if (!$room) {
+            $this->flash('error', 'Room not found.');
+            $this->redirect('landlord/rooms');
+        }
+
+        // Check for active tenants
+        $tenantModel = $this->model('Tenant');
+        $tenants = $tenantModel->getByRoomId($roomId);
+        if (!empty($tenants)) {
+            $this->flash('error', 'Cannot delete room with active tenants. Move them out first.');
+            $this->redirect('landlord/rooms');
+        }
+
+        $this->roomModel->delete($roomId);
+        $this->auditLogModel->log(
+            $_SESSION['user_id'], 'room_deleted', 'room', $roomId,
+            $room, null, "Room {$room['room_number']} deleted"
+        );
+        $this->flash('success', "Room {$room['room_number']} deleted.");
+        $this->redirect('landlord/rooms');
+    }
+
     /**
      * LANDLORD: Legacy store() compatibility
      */

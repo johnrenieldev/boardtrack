@@ -1,17 +1,28 @@
-﻿<?php
+<?php
 /**
- * BoardTrack — NotificationController
+ * BoardTrack | NotificationController
+ * app/controllers/NotificationController.php
+ *
+ * Handles:
+ *  - index / notifications  → redirect to role-specific page
+ *  - markRead               → AJAX: mark a single notification read (fallback route)
+ *  - delete                 → AJAX: delete a notification
+ *
+ * Note: The primary mark-read AJAX endpoint is handled by
+ *       LandlordController::markNotificationRead() and
+ *       TenantController::markNotificationRead(), which are called
+ *       directly by notifications.js via data-mark-notif-read-url.
+ *
+ * "Mark All as Read" has been removed.
  */
 class NotificationController extends Controller
 {
     private object $notificationModel;
-    private object $userModel;
 
     public function __construct()
     {
         $this->requireAuth();
         $this->notificationModel = $this->model('Notification');
-        $this->userModel         = $this->model('User');
     }
 
     public function index(): void
@@ -23,36 +34,50 @@ class NotificationController extends Controller
     public function notifications(): void
     {
         $role = $_SESSION['user_role'] ?? 'tenant';
-        if ($role === 'landlord') {
-            $this->redirect('landlord/notifications');
-            return;
-        }
-        $this->redirect('tenant/notifications');
+        $this->redirect($role === 'landlord' ? 'landlord/notifications' : 'tenant/notifications');
     }
 
+    /**
+     * POST notification/markRead/{id}
+     * Fallback mark-read endpoint (role-specific controllers are preferred).
+     * Validates ownership via WHERE user_id = :uid in the model.
+     */
     public function markRead(int $id): void
     {
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $userId = (int) $_SESSION['user_id'];
-            if ($id > 0) {
-                $this->notificationModel->markRead($id, $userId);
-            }
-            $this->json([
-                'success'      => true,
-                'unread_count' => $this->notificationModel->getUnreadCount($userId),
-            ]);
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirectNotifications();
+            return;
         }
-        $this->redirectNotifications();
+
+        $userId = (int) $_SESSION['user_id'];
+
+        if ($id > 0) {
+            $this->notificationModel->markRead($id, $userId);
+        }
+
+        $this->json(['success' => true]);
     }
 
-    public function markAllRead(): void
+    /**
+     * POST notification/delete/{id}
+     * Deletes a notification belonging to the authenticated user.
+     * Ownership enforced by model: WHERE id = :id AND user_id = :uid.
+     */
+    public function delete(int $id): void
     {
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $userId = (int) $_SESSION['user_id'];
-            $this->notificationModel->markAllRead($userId);
-            $this->json(['success' => true, 'unread_count' => 0]);
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirectNotifications();
+            return;
         }
-        $this->redirectNotifications();
+
+        $userId = (int) $_SESSION['user_id'];
+
+        if ($id > 0 && $this->notificationModel->deleteForUser($id, $userId)) {
+            $this->json(['success' => true]);
+            return;
+        }
+
+        $this->json(['success' => false], 400);
     }
 
     private function redirectNotifications(): void

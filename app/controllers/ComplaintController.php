@@ -1,6 +1,6 @@
 <?php
 /**
- * BoardTrack — ComplaintController (Phase 1 Fixed)
+ * BoardTrack | ComplaintController (Phase 1 Fixed)
  */
 class ComplaintController extends Controller
 {
@@ -35,7 +35,7 @@ class ComplaintController extends Controller
         ];
         $complaints = $this->complaintModel->getAllWithTenants($filters);
         $this->view('landlord/complaints', [
-            'pageTitle'  => 'Complaints — BoardTrack',
+            'pageTitle'  => 'Complaints | BoardTrack',
             'complaints' => $complaints,
             'filters'    => $filters,
         ], 'landlord');
@@ -45,10 +45,10 @@ class ComplaintController extends Controller
      */
     public function tenantComplaints(): void
     {
-        $tenant = $this->tenantModel->findByUserId((int)$_SESSION['user_id']);
+        $tenant = $this->requireApprovedTenant();
         $complaints = $this->complaintModel->getByTenantId($tenant['id']);
         $this->view('tenant/complaints', [
-            'pageTitle'  => 'My Complaints — BoardTrack',
+            'pageTitle'  => 'My Complaints | BoardTrack',
             'complaints' => $complaints,
         ], 'tenant');
     }
@@ -57,8 +57,9 @@ class ComplaintController extends Controller
      */
     public function createComplaint(): void
     {
+        $this->requireApprovedTenant();
         $this->view('tenant/complaintForm', [
-            'pageTitle' => 'Submit Complaint — BoardTrack',
+            'pageTitle' => 'Submit Complaint | BoardTrack',
         ], 'tenant');
     }
     /**
@@ -69,7 +70,7 @@ class ComplaintController extends Controller
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirect('tenant/complaints');
         }
-        $tenant = $this->tenantModel->findByUserId((int)$_SESSION['user_id']);
+        $tenant = $this->requireApprovedTenant();
         $data = [
             'category'     => $_POST['category'] ?? 'other',
             'title'        => trim($_POST['title'] ?? ''),
@@ -80,7 +81,32 @@ class ComplaintController extends Controller
             $this->flash('error', 'Title and description required.');
             $this->redirect('tenant/createComplaint');
         }
-        $this->complaintModel->submit($tenant['id'], $data);
+        $complaintId = $this->complaintModel->submit($tenant['id'], $data);
+        
+        // Notify Landlord
+        $userModel = $this->model('User');
+        $landlord = $userModel->getLandlordAccount();
+        if ($landlord) {
+            $this->notificationModel->createNotification(
+                (int) $landlord['id'],
+                'complaint',
+                'New Complaint',
+                ($tenant['name'] ?? 'A tenant') . ' submitted: ' . $data['title'],
+                'landlord/view-complaint/' . $complaintId
+            );
+        }
+
+        // Audit Log
+        $this->model('AuditLog')->log(
+            (int) $_SESSION['user_id'],
+            'complaint_submitted',
+            'complaint',
+            $complaintId,
+            null,
+            $data,
+            "Tenant submitted a new complaint: {$data['title']}"
+        );
+
         $this->flash('success', 'Complaint submitted.');
         $this->redirect('tenant/complaints');
     }

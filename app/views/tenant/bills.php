@@ -19,23 +19,34 @@ $landlordGcash = $landlordGcash ?? ['has_qr' => false, 'qr_url' => null, 'landlo
 </div>
 
 <!-- Statistics -->
-<div class="stats-grid">
-  <div class="stat-card">
-    <div class="stat-label">Unpaid Bills</div>
-    <div class="stat-value"><?= $statistics['unpaid'] ?? 0 ?></div>
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  <div class="card p-4">
+    <div class="text-[0.65rem] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+      <i class="fa-solid fa-file-invoice text-danger-500"></i> Unpaid Bills
+    </div>
+    <div class="text-2xl font-black text-gray-900 leading-none"><?= $statistics['unpaid'] ?? 0 ?></div>
   </div>
-  <div class="stat-card">
-    <div class="stat-label">Pending</div>
-    <div class="stat-value"><?= $statistics['pending'] ?? 0 ?></div>
-    <div class="stat-meta">Awaiting verification</div>
+  
+  <div class="card p-4">
+    <div class="text-[0.65rem] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+      <i class="fa-solid fa-clock text-warning-500"></i> Pending
+    </div>
+    <div class="text-2xl font-black text-gray-900 leading-none"><?= $statistics['pending'] ?? 0 ?></div>
+    <div class="text-[0.6rem] font-bold text-gray-400 mt-2 uppercase tracking-tighter">Awaiting verification</div>
   </div>
-  <div class="stat-card">
-    <div class="stat-label">Paid</div>
-    <div class="stat-value"><?= $statistics['paid'] ?? 0 ?></div>
+  
+  <div class="card p-4">
+    <div class="text-[0.65rem] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+      <i class="fa-solid fa-circle-check text-success-500"></i> Paid
+    </div>
+    <div class="text-2xl font-black text-gray-900 leading-none"><?= $statistics['paid'] ?? 0 ?></div>
   </div>
-  <div class="stat-card">
-    <div class="stat-label">Total Due</div>
-    <div class="stat-value">₱<?= number_format($statistics['total_unpaid'] ?? 0, 0) ?></div>
+  
+  <div class="card p-4">
+    <div class="text-[0.65rem] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+      <i class="fa-solid fa-hand-holding-dollar text-brand-500"></i> Total Due
+    </div>
+    <div class="text-2xl font-black text-gray-900 leading-none">₱<?= number_format($statistics['total_unpaid'] ?? 0, 0) ?></div>
   </div>
 </div>
 
@@ -72,10 +83,10 @@ $landlordGcash = $landlordGcash ?? ['has_qr' => false, 'qr_url' => null, 'landlo
             <th>Bill</th>
             <th>Type</th>
             <th>Period</th>
-            <th>Amount</th>
+            <th data-col="amount">Amount</th>
             <th>Due Date</th>
-            <th>Status</th>
-            <th>Action</th>
+            <th data-col="status">Status</th>
+            <th data-col="actions">Action</th>
           </tr>
         </thead>
         <tbody>
@@ -88,32 +99,34 @@ $landlordGcash = $landlordGcash ?? ['has_qr' => false, 'qr_url' => null, 'landlo
               'pending_verification' => 'badge-pv',
             ];
           ?>
-          <tr data-status="<?= htmlspecialchars($status) ?>">
-            <td>
+            <tr data-status="<?= htmlspecialchars($status) ?>">
+            <td data-label="Bill">
               <div class="td-name"><?= htmlspecialchars($bill['bill_name']) ?></div>
               <?php if (!empty($bill['notes'])): ?>
                 <div class="td-sub"><?= htmlspecialchars($bill['notes']) ?></div>
               <?php endif; ?>
             </td>
-            <td>
+            <td data-label="Type">
               <span class="badge <?= ($bill['billing_type'] ?? '') === 'individual' ? 'badge-info' : 'badge-normal' ?>">
                 <?= ($bill['billing_type'] ?? '') === 'individual' ? 'Individual' : 'Room' ?>
               </span>
             </td>
-            <td style="color:var(--gray-500);font-size:0.82rem;"><?= htmlspecialchars(($bill['billing_period_start'] ?? '') . ' — ' . ($bill['billing_period_end'] ?? '')) ?></td>
-            <td style="font-weight:600;">₱<?= number_format($bill['amount'], 2) ?></td>
-            <td style="color:var(--gray-500);"><?= date('M d, Y', strtotime($bill['due_date'])) ?></td>
-            <td><span class="badge <?= $badgeMap[$status] ?? 'badge-normal' ?>"><?= ucfirst(str_replace('_', ' ', $status)) ?></span></td>
-            <td>
-              <?php if ($status === 'unpaid' || $status === 'overdue'): ?>
-                <button type="button" class="btn btn-primary btn-sm" onclick="openPaymentModal(<?= $bill['id'] ?>, '<?= htmlspecialchars(addslashes($bill['bill_name'])) ?>', <?= $bill['amount'] ?>, '<?= htmlspecialchars($bill['due_date']) ?>')">
-                  <i class="fa-solid fa-upload"></i> Pay Now
-                </button>
-              <?php elseif ($status === 'pending_verification'): ?>
-                <span style="font-size:0.78rem;color:var(--gray-400);"><i class="fa-solid fa-clock"></i> Verifying</span>
-              <?php elseif ($status === 'paid'): ?>
-                <span style="font-size:0.78rem;color:var(--success);"><i class="fa-solid fa-check-circle"></i> Paid<?php if (!empty($bill['paid_at'])): ?> <?= date('M d', strtotime($bill['paid_at'])) ?><?php endif; ?></span>
-              <?php endif; ?>
+            <td data-label="Period" style="color:var(--gray-500);font-size:0.82rem;"><?= htmlspecialchars(($bill['billing_period_start'] ?? '') . ' — ' . ($bill['billing_period_end'] ?? '')) ?></td>
+            <td data-label="Amount" data-col="amount" style="font-weight:600;">₱<?= number_format($bill['amount'], 2) ?></td>
+            <td data-label="Due Date" style="color:var(--gray-500);"><?= date('M d, Y', strtotime($bill['due_date'])) ?></td>
+            <td data-label="Status" data-col="status"><span class="badge <?= $badgeMap[$status] ?? 'badge-normal' ?>"><?= ucfirst(str_replace('_', ' ', $status)) ?></span></td>
+            <td data-label="Action" data-col="actions">
+              <div class="flex items-center justify-end">
+                <?php if ($status === 'unpaid' || $status === 'overdue'): ?>
+                  <button type="button" class="btn btn-primary btn-sm" onclick="openPaymentModal(<?= $bill['id'] ?>, '<?= htmlspecialchars(addslashes($bill['bill_name'])) ?>', <?= $bill['amount'] ?>, '<?= htmlspecialchars($bill['due_date']) ?>')">
+                    <i class="fa-solid fa-upload text-xs"></i> Pay Now
+                  </button>
+                <?php elseif ($status === 'pending_verification'): ?>
+                  <span style="font-size:0.78rem;color:var(--gray-400); font-weight: 700;"><i class="fa-solid fa-clock"></i> VERIFYING</span>
+                <?php elseif ($status === 'paid'): ?>
+                  <span style="font-size:0.78rem;color:var(--success); font-weight: 700;"><i class="fa-solid fa-check-circle"></i> PAID<?php if (!empty($bill['paid_at'])): ?> <?= date('M d', strtotime($bill['paid_at'])) ?><?php endif; ?></span>
+                <?php endif; ?>
+              </div>
             </td>
           </tr>
           <?php endforeach; ?>
@@ -132,6 +145,7 @@ $landlordGcash = $landlordGcash ?? ['has_qr' => false, 'qr_url' => null, 'landlo
     </div>
     <form action="<?= Router::url('tenant/submit-payment') ?>" method="POST" enctype="multipart/form-data" class="confirm-form"
           data-action="Submit payment" data-message="Submit this payment receipt to your landlord for verification?">
+      <input type="hidden" name="csrf_token" value="<?= $this->csrf() ?>">
       <input type="hidden" name="bill_id" id="paymentBillId">
       <div class="modal-body">
         <div style="background:var(--gray-50);padding:14px 16px;border-radius:var(--radius);margin-bottom:16px;">

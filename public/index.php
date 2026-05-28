@@ -1,16 +1,12 @@
 <?php
 /**
- * BoardTrack — Application Entry Point
- * public/index.php
+ * Application front controller.
  *
- * ALL requests pass through here.
- * Load order matters — do not rearrange.
+ * Initializes configuration, session security, core dependencies, and routing.
  */
-// 1. CONFIG
-// Must load first — defines constants used everywhere
+// Load application configuration and constants first.
 require_once dirname(__DIR__) . '/config/config.php';
-// 2. SESSION
-// Configure session before starting it
+// Configure session policy before calling session_start().
 session_name(SESSION_NAME);
 
 ini_set('session.gc_maxlifetime', (string) SESSION_LIFETIME);
@@ -26,20 +22,19 @@ session_set_cookie_params([
 ]);
 
 session_start();
-// 3. CORE CLASSES
+// Load framework base classes.
 require_once CORE_PATH . '/Model.php';
 require_once CORE_PATH . '/Controller.php';
 require_once CORE_PATH . '/Router.php';
-// 4. DATABASE
+// Initialize database layer.
 require_once CONFIG_PATH . '/database.php';
-// 5. AUTOLOADER (controllers + models)
-// Simple PSR-0-style autoloader for app classes.
-// Checks controllers/ then models/ directories.
+// Register lightweight app autoloader (controllers/models).
 spl_autoload_register(function (string $class): void {
 
     $locations = [
         APP_PATH . '/controllers/' . $class . 'Controller.php',
-        APP_PATH . '/model/'       . $class . '.php',
+        APP_PATH . '/models/'       . $class . '.php',
+        APP_PATH . '/services/'     . $class . '.php',
         APP_PATH . '/controllers/' . $class . '.php',
     ];
 
@@ -50,6 +45,6 @@ spl_autoload_register(function (string $class): void {
         }
     }
 });
-// 6. BOOT APPLICATION
+// Boot HTTP application.
 require_once CORE_PATH . '/App.php';
 new App();

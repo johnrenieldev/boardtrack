@@ -1,6 +1,6 @@
 <?php
 /**
- * BoardTrack — Home Controller
+ * BoardTrack | Home Controller
  * app/controllers/HomeController.php
  *
  * Handles the public-facing landing page and 404.
@@ -8,6 +8,13 @@
 
 class HomeController extends Controller
 {
+    private object $testimonialModel;
+
+    public function __construct()
+    {
+        $this->testimonialModel = $this->model('Testimonial');
+    }
+
     /**
      * GET  /  or  /?url=home/index
      * Renders the landing page.
@@ -24,10 +31,14 @@ class HomeController extends Controller
             }
         }
 
+        // Fetch approved testimonials for the landing page
+        $testimonials = $this->testimonialModel->getApprovedTestimonials(6);
+
         $this->view('home/landing', [
-            'pageTitle' => 'BoardTrack — Boarding House Management System',
+            'pageTitle' => 'BoardTrack | Boarding House Management System',
             'metaDesc'  => 'BoardTrack helps landlords manage tenants, billing, and complaints while keeping tenants informed about their room, payments, and announcements.',
             'bodyClass' => 'page-landing',
+            'testimonials' => $testimonials,
         ], 'main');
     }
 
@@ -39,8 +50,79 @@ class HomeController extends Controller
     {
         http_response_code(404);
         $this->view('home/landing', [
-            'pageTitle' => '404 — Page Not Found | BoardTrack',
+            'pageTitle' => '404 | Page Not Found | BoardTrack',
             'bodyClass' => 'page-landing',
         ], 'main');
+    }
+
+    /**
+     * POST /home/contact
+     * Handles contact form submissions from the landing page.
+     */
+    public function contact(): void
+    {
+        header('Content-Type: application/json');
+
+        // Only accept POST requests
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+            return;
+        }
+
+        // Get form data
+        $name = trim($_POST['name'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $subject = $_POST['subject'] ?? '';
+        $message = trim($_POST['message'] ?? '');
+
+        // Validate required fields
+        if (empty($name) || empty($email) || empty($subject) || empty($message)) {
+            echo json_encode(['success' => false, 'message' => 'All fields are required']);
+            return;
+        }
+
+        // Validate email format
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid email address']);
+            return;
+        }
+
+        // Validate subject options
+        $validSubjects = ['technical', 'partnership', 'general'];
+        if (!in_array($subject, $validSubjects)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid subject']);
+            return;
+        }
+
+        $subjectLabels = [
+            'technical' => 'Technical Support',
+            'partnership' => 'Partnership Inquiry',
+            'general' => 'General Question'
+        ];
+
+        $supportEmail = defined('MAIL_USERNAME') && !empty(MAIL_USERNAME) ? MAIL_USERNAME : 'jrbalsacao@gmail.com';
+        $supportName  = APP_NAME . ' Contact';
+
+        require_once ROOT_PATH . '/app/helpers/BoardTrackMail.php';
+
+        $emailSent = BoardTrackMail::contactUs(
+            $supportEmail,
+            $supportName,
+            $name,
+            $email,
+            $subjectLabels[$subject],
+            $message
+        );
+
+        if ($emailSent || !BoardTrackMail::isEnabled()) {
+            if (!BoardTrackMail::isEnabled()) {
+                error_log("[BoardTrack Contact Form] Mailer is disabled. Message received locally: Name={$name}, Email={$email}, Subject={$subjectLabels[$subject]}, Message={$message}");
+            }
+            echo json_encode(['success' => true, 'message' => 'Message sent successfully']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to send message. Please try again later.']);
+        }
+
     }
 }

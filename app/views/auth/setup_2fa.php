@@ -2,13 +2,12 @@
 /**
  * BoardTrack — 2FA Setup / Management Page
  * app/views/auth/setup_2fa.php
- * Layout: landlord.php OR tenant.php (determined by AuthController::setup2FA())
  *
- * Variables:
- *   $user          (array)       Current user row (no secret, no password_hash)
- *   $has2FA        (bool)        Whether 2FA is currently enabled
- *   $pendingSecret (string|null) Base32 secret (for manual entry only; NOT exposed in page JS)
- *   $qrUrl         (string|null) Google Charts QR image URL (already built server-side)
+ * @var Controller  $this
+ * @var array       $user          Current user row
+ * @var bool        $has2FA        Whether 2FA is currently enabled
+ * @var string|null $pendingSecret Base32 secret (pending verification)
+ * @var string|null $qrUrl         QR code image URL
  */
 
 $alerts = $_SESSION['flash'] ?? [];
@@ -23,7 +22,7 @@ unset($_SESSION['flash']);
 </div>
 
 <?php foreach ($alerts as $f): ?>
-  <div class="alert <?= $f['type'] ?>" style="margin-top: 16px;">
+  <div class="alert alert-<?= $f['type'] ?>" style="margin-top: 16px;">
     <i class="fa-solid <?= $f['type'] === 'error' ? 'fa-circle-xmark' : 'fa-circle-check' ?>"></i>
     <?= htmlspecialchars($f['message']) ?>
   </div>
@@ -65,13 +64,14 @@ unset($_SESSION['flash']);
         To disable 2FA you must verify your current password <strong>and</strong> your authenticator code.
       </p>
 
-      <button type="button" onclick="document.getElementById('disablePanel').classList.toggle('hidden')"
-        class="btn btn-danger-outline" style="margin-bottom: 16px;">
+      <button type="button" onclick="toggleDisablePanel()"
+        class="btn btn-secondary" style="margin-bottom: 16px; color: var(--color-danger); border-color: var(--color-danger-border);">
         <i class="fa-solid fa-lock-open"></i> Disable 2FA
       </button>
 
-      <div id="disablePanel" class="hidden">
+      <div id="disablePanel" style="display: none;">
         <form action="<?= Router::url('auth/disable2FA') ?>" method="POST" style="background: var(--gray-50); padding: 20px; border-radius: 8px; border: 1px solid var(--gray-200);">
+          <input type="hidden" name="csrf_token" value="<?= $this->csrf() ?>">
           <div class="form-group">
             <label>Current Password <span class="text-danger">*</span></label>
             <input type="password" name="current_password" class="form-input" placeholder="••••••••" required autocomplete="current-password">
@@ -98,10 +98,34 @@ unset($_SESSION['flash']);
         <!-- QR image is fetched by the browser from Google Charts. The secret is embedded
              inside the otpauth:// URI within the QR — this is by design and is how all
              TOTP apps receive the secret. It is NOT echoed as plain text in the HTML. -->
-        <img src="<?= htmlspecialchars($qrUrl) ?>"
-             alt="Google Authenticator QR Code"
-             style="width: 200px; height: 200px; border: 4px solid var(--gray-200); border-radius: 8px;">
+        <div style="position: relative; width: 200px; height: 200px; background: var(--gray-50); border: 4px solid var(--gray-200); border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+          <img src="<?= htmlspecialchars($qrUrl) ?>"
+               alt="Google Authenticator QR Code"
+               style="width: 100%; height: 100%; object-fit: contain;"
+               onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+          <div style="display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; color: var(--gray-500);">
+            <i class="fa-solid fa-triangle-exclamation text-warning" style="font-size: 2rem; margin-bottom: 8px;"></i>
+            <p style="font-size: 0.75rem;">QR Code failed to load. Please use the manual entry code below.</p>
+          </div>
+        </div>
         <p style="font-size: 0.8rem; color: var(--gray-400); margin-top: 8px;">Scan with Google Authenticator</p>
+        
+        <div style="margin-top: 16px; text-align: center;">
+          <p style="font-size: 0.8rem; color: var(--gray-500); margin-bottom: 4px;">Can't scan? Enter this code manually:</p>
+          <code style="background: var(--gray-100); padding: 4px 12px; border-radius: 4px; font-weight: 700; color: var(--brand-600); letter-spacing: 0.1em; font-size: 1rem; cursor: pointer;"
+                onclick="copySecret('<?= $pendingSecret ?>')" title="Click to copy">
+            <?= htmlspecialchars(implode(' ', str_split((string)$pendingSecret, 4))) ?>
+          </code>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin-bottom: 20px;">
+        <form action="<?= Router::url('auth/setup2FAInit') ?>" method="POST" onsubmit="return confirm('This will invalidate your current QR code and generate a new one. Continue?')">
+          <input type="hidden" name="csrf_token" value="<?= $this->csrf() ?>">
+          <button type="submit" class="btn btn-outline btn-sm" style="font-size: 0.75rem; color: var(--gray-500); min-height: 32px; padding: 4px 12px;">
+            <i class="fa-solid fa-rotate"></i> Regenerate QR Code
+          </button>
+        </form>
       </div>
 
       <hr style="margin: 20px 0; border: 0; border-top: 1px solid var(--gray-200);">
@@ -111,6 +135,7 @@ unset($_SESSION['flash']);
       </p>
 
       <form action="<?= Router::url('auth/setup2FAConfirm') ?>" method="POST">
+        <input type="hidden" name="csrf_token" value="<?= $this->csrf() ?>">
         <div class="form-group">
           <label>Verification Code <span class="text-danger">*</span></label>
           <input type="text" name="totp_code" class="form-input font-mono"
@@ -140,6 +165,7 @@ unset($_SESSION['flash']);
       </div>
 
       <form action="<?= Router::url('auth/setup2FAInit') ?>" method="POST">
+        <input type="hidden" name="csrf_token" value="<?= $this->csrf() ?>">
         <button type="submit" class="btn btn-primary">
           <i class="fa-solid fa-shield-halved"></i> Enable Two-Factor Authentication
         </button>
@@ -150,17 +176,21 @@ unset($_SESSION['flash']);
   </div><!-- /card-body -->
 </div><!-- /card -->
 
-<!-- Change Password link -->
-<div class="card" style="max-width: 620px; margin-top: 20px;">
-  <div class="card-body" style="display: flex; justify-content: space-between; align-items: center;">
-    <div>
-      <strong style="color: var(--gray-800);">Change Password</strong>
-      <p style="font-size: 0.85rem; color: var(--gray-500); margin: 0;">
-        Update your login password. <?= $has2FA ? 'Requires authenticator code.' : '' ?>
-      </p>
-    </div>
-    <a href="<?= Router::url('auth/changePassword') ?>" class="btn btn-secondary">
-      <i class="fa-solid fa-key"></i> Change Password
-    </a>
-  </div>
-</div>
+<script>
+function toggleDisablePanel() {
+  const panel = document.getElementById('disablePanel');
+  if (panel.style.display === 'none') {
+    panel.style.display = 'block';
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
+function copySecret(secret) {
+  navigator.clipboard.writeText(secret).then(() => {
+    alert('Secret copied to clipboard!');
+  }).catch(() => {
+    alert('Failed to copy secret. Please copy it manually.');
+  });
+}
+</script>

@@ -2,17 +2,22 @@
 
 class Controller
 {
-// View loading
+    // Render view with optional layout wrapper.
     protected function view(string $view, array $data = [], ?string $layout = 'main'): void
     {
         if (in_array($layout, ['landlord', 'tenant'], true) && !empty($_SESSION['user_id'])) {
             $notifModel = $this->model('Notification');
-            $userId = (int) $_SESSION['user_id'];
-            $role = $_SESSION['user_role'] ?? 'tenant';
-            $prefix = $role === 'landlord' ? 'landlord' : 'tenant';
-            $data['unreadNotificationCount'] = $notifModel->getUnreadCount($userId);
-            $data['markNotificationReadUrl'] = Router::url("{$prefix}/notification/mark-read");
-            $data['markAllNotificationsUrl'] = Router::url("{$prefix}/notifications/mark-all-read");
+            $userModel  = $this->model('User');
+            $userId     = (int) $_SESSION['user_id'];
+            $role       = $_SESSION['user_role'] ?? 'tenant';
+            $prefix     = $role === 'landlord' ? 'landlord' : 'tenant';
+
+            $user = $userModel->findById($userId);
+            $hasUnread = $notifModel->hasUnread($userId);
+
+            $data['hasUnreadNotifications']   = $hasUnread;
+            $data['markNotificationReadUrl']  = "{$prefix}/markNotificationRead";
+            $data['userStatus']               = $user['status'] ?? 'pending';
         }
 
         if (!empty($data)) extract($data, EXTR_SKIP);
@@ -36,11 +41,10 @@ class Controller
         require $layoutFile;
     }
 
-// Model loading
-    // FIX: folder is /app/model/ (not /models/)
+    // Instantiate model class by conventional filename.
     protected function model(string $name): object
     {
-        $file = APP_PATH . '/model/' . $name . '.php';
+        $file = APP_PATH . '/models/' . $name . '.php';
         if (!file_exists($file)) {
             $this->abort(500, "Model not found: {$name}");
         }
@@ -51,14 +55,14 @@ class Controller
         return new $name();
     }
 
-// Redirect
+    // Redirect response and terminate execution.
     protected function redirect(string $path = ''): void
     {
         header('Location: ' . Router::url($path));
         exit;
     }
 
-// CSRF Protection
+    // CSRF token utilities.
     protected function csrf(): string
     {
         if (empty($_SESSION['csrf_token'])) {
@@ -77,7 +81,7 @@ class Controller
         }
     }
 
-// Auth guards
+    // Authentication and authorization guards.
     protected function requireAuth(): void
     {
         if (empty($_SESSION['user_id'])) {
@@ -102,7 +106,7 @@ class Controller
         }
     }
 
-    /** Redirect when session is invalid — do not destroy session like logout */
+    /** Redirect when session is invalid without forcing logout cleanup flow. */
     protected function invalidSession(string $message = 'Please log in again.'): void
     {
         $this->flash('error', $message);
@@ -125,6 +129,22 @@ class Controller
         if (!$tenant) {
             $this->invalidSession('Your tenant profile is incomplete. Please contact the landlord or register again.');
         }
+        return $tenant;
+    }
+
+    /**
+     * Require approved tenant with a room assignment.
+     */
+    protected function requireApprovedTenant(): array
+    {
+        $tenant = $this->requireTenantProfile();
+        
+        // Strictly check for approved status and room assignment
+        if (($tenant['user_status'] ?? '') !== 'approved' || empty($tenant['room_id'])) {
+            $this->flash('error', 'Your account is currently under review by the landlord. Access will be available once approved.');
+            $this->redirect('tenant/dashboard');
+        }
+        
         return $tenant;
     }
 
@@ -166,14 +186,13 @@ class Controller
         return $filename;
     }
 
-// Flash messages
-    // FIX: always stores as array with type+message keys
+    // Queue flash message for next request.
     protected function flash(string $type, string $message): void
     {
         $_SESSION['flash'][] = ['type' => $type, 'message' => $message];
     }
 
-// JSON response
+    // Return JSON response and terminate execution.
     protected function json(mixed $data, int $code = 200): void
     {
         http_response_code($code);
@@ -190,7 +209,7 @@ class Controller
             || strcasecmp($xhr, 'XMLHttpRequest') === 0;
     }
 
-// Error page
+    // Render fallback error response.
     protected function abort(int $code, string $message = ''): void
     {
         http_response_code($code);

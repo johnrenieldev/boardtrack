@@ -15,7 +15,7 @@
 class TOTP
 {
     // Number of 30-second windows to check either side of now (allows clock drift)
-    private const WINDOW = 1;
+    private const WINDOW = 2;
     private const DIGITS = 6;
     private const PERIOD = 30;
 
@@ -140,7 +140,7 @@ class TOTP
         return false;
     }
 
-    // ── Internal helpers ─────────────────────────────────────────────────────
+    // Internal helper methods.
 
     /**
      * HMAC-based One-Time Password (RFC 4226)

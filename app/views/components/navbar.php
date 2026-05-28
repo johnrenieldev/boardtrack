@@ -1,36 +1,56 @@
 <?php
 /**
- * BoardTrack — Top Navbar Component
+ * BoardTrack | Top Navbar Component
  * app/views/components/navbar.php
  */
 $role        = $role ?? ($_SESSION['user_role'] ?? 'tenant');
 $userName    = $_SESSION['user_name'] ?? 'User';
 $userInitial = strtoupper(substr($userName, 0, 1));
 $pageTitle   = $pageTitle ?? 'BoardTrack';
+$hasUnread   = (bool) ($hasUnreadNotifications ?? false);
 ?>
-<header class="topbar">
-  <div class="topbar-left">
-    <button class="topbar-toggle" id="sidebarToggle">
-      <i class="fa-solid fa-bars"></i>
-    </button>
-  </div>
+<div class="topbar-wrap">
+  <header class="topbar w-full max-w-full overflow-x-hidden" role="banner">
+    <div class="topbar-left">
+      <button class="topbar-toggle" id="sidebarToggle" aria-label="Toggle sidebar menu" aria-expanded="false" aria-controls="sidebar">
+        <i class="fa-solid fa-bars" aria-hidden="true"></i>
+      </button>
+    </div>
 
-  <div class="topbar-right">
-    <?php
-      $notifUrl = $role === 'landlord' ? 'landlord/notifications' : 'tenant/notifications';
-    ?>
-    <?php $unreadNotifs = (int) ($unreadNotificationCount ?? 0); ?>
-    <a href="<?= Router::url($notifUrl) ?>" class="topbar-icon-btn topbar-icon-btn--badge" id="notifBellBtn"
-       title="<?= $unreadNotifs > 0 ? $unreadNotifs . ' unread notification' . ($unreadNotifs === 1 ? '' : 's') : 'Notifications' ?>">
-      <i class="fa-solid fa-bell"></i>
-      <span class="notif-badge" id="notifUnreadBadge" <?= $unreadNotifs <= 0 ? 'hidden' : '' ?>><?= $unreadNotifs > 99 ? '99+' : $unreadNotifs ?></span>
-    </a>
-    <?php $profileUrl = $role === 'landlord' ? 'landlord/profile' : 'tenant/profile'; ?>
-    <a href="<?= Router::url($profileUrl) ?>" class="topbar-user-btn" style="text-decoration:none;">
-      <div class="topbar-avatar <?= $role === 'landlord' ? 'avatar-landlord' : '' ?>">
-        <?= htmlspecialchars($userInitial) ?>
-      </div>
-      <span class="topbar-user-name"><?= htmlspecialchars($userName) ?></span>
-    </a>
-  </div>
-</header>
+    <div class="topbar-right">
+      <?php
+        $notifUrl = $role === 'landlord' ? 'landlord/notifications' : 'tenant/notifications';
+      ?>
+      <a href="<?= Router::url($notifUrl) ?>" class="topbar-icon-btn topbar-notif-btn" id="notifBellBtn"
+         aria-label="Notifications">
+        <i class="fa-solid fa-bell" aria-hidden="true"></i>
+        <span class="notif-red-dot"<?= $hasUnread ? '' : ' hidden' ?> aria-label="Unread notifications"></span>
+      </a>
+      <?php $profileUrl = $role === 'landlord' ? 'landlord/profile' : 'tenant/profile'; ?>
+      <a href="<?= Router::url($profileUrl) ?>" class="topbar-user-btn" style="text-decoration:none;" aria-label="View profile">
+        <div class="topbar-avatar <?= $role === 'landlord' ? 'avatar-landlord' : '' ?>" aria-hidden="true" style="background: var(--color-brand);">
+          <?= htmlspecialchars($userInitial) ?>
+        </div>
+      </a>
+    </div>
+  </header>
+</div>
+
+<style>
+.topbar-notif-btn {
+  position: relative;
+}
+.notif-red-dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 9px;
+  height: 9px;
+  background: #ef4444;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  display: block;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+</style>

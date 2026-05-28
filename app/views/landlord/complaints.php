@@ -21,20 +21,39 @@ $filters    = $filters    ?? [];
 <!-- Stats -->
 <div class="stats-grid">
   <div class="stat-card">
-    <div class="stat-label"><i class="fa-solid fa-triangle-exclamation" style="margin-right:4px;"></i> Total</div>
+    <div class="stat-header">
+      <div class="stat-icon-box"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <div class="stat-label">Total Complaints</div>
+    </div>
     <div class="stat-value"><?= $statistics['total'] ?? 0 ?></div>
+    <div class="stat-footer">Across <span>all categories</span></div>
   </div>
-  <div class="stat-card">
-    <div class="stat-label"><i class="fa-solid fa-clock" style="margin-right:4px;"></i> Pending</div>
+
+  <div class="stat-card <?= ($statistics['pending'] ?? 0) > 0 ? 'urgent' : '' ?>">
+    <div class="stat-header">
+      <div class="stat-icon-box"><i class="fa-solid fa-clock"></i></div>
+      <div class="stat-label">Pending</div>
+    </div>
     <div class="stat-value"><?= $statistics['pending'] ?? 0 ?></div>
+    <div class="stat-footer">Awaiting <span>initial review</span></div>
   </div>
+
   <div class="stat-card">
-    <div class="stat-label"><i class="fa-solid fa-spinner" style="margin-right:4px;"></i> In Progress</div>
+    <div class="stat-header">
+      <div class="stat-icon-box"><i class="fa-solid fa-spinner"></i></div>
+      <div class="stat-label">In Progress</div>
+    </div>
     <div class="stat-value"><?= $statistics['in_progress'] ?? 0 ?></div>
+    <div class="stat-footer">Currently <span>being resolved</span></div>
   </div>
+
   <div class="stat-card">
-    <div class="stat-label"><i class="fa-solid fa-circle-check" style="margin-right:4px;"></i> Resolved</div>
+    <div class="stat-header">
+      <div class="stat-icon-box"><i class="fa-solid fa-circle-check"></i></div>
+      <div class="stat-label">Resolved</div>
+    </div>
     <div class="stat-value"><?= $statistics['resolved'] ?? 0 ?></div>
+    <div class="stat-footer">Successfully <span>closed</span></div>
   </div>
 </div>
 
@@ -75,23 +94,23 @@ $filters    = $filters    ?? [];
         <thead>
           <tr>
             <th>Complaint</th>
-            <th>Category</th>
+            <th data-col="category">Category</th>
             <th>Submitted By</th>
-            <th>Date</th>
-            <th>Status</th>
-            <th>Actions</th>
+            <th data-col="date">Date</th>
+            <th data-col="status">Status</th>
+            <th data-col="actions">Actions</th>
           </tr>
         </thead>
         <tbody>
           <?php foreach ($complaints as $complaint): ?>
             <tr>
-              <td>
+              <td data-label="Complaint">
                 <div class="td-name"><?= htmlspecialchars($complaint['title']) ?></div>
                 <?php if ($complaint['is_anonymous']): ?>
                   <span class="badge badge-normal" style="margin-top:4px;"><i class="fa-solid fa-user-secret"></i> Anonymous</span>
                 <?php endif; ?>
               </td>
-              <td>
+              <td data-label="Category" data-col="category">
                 <?php
                   $catBadge = match($complaint['category']) {
                     'maintenance'       => 'badge-high',
@@ -105,7 +124,7 @@ $filters    = $filters    ?? [];
                   <?= ucfirst(str_replace('_', ' ', $complaint['category'])) ?>
                 </span>
               </td>
-              <td>
+              <td data-label="Submitted By">
                 <div style="display:flex;align-items:center;gap:10px;">
                   <div style="width:32px;height:32px;border-radius:var(--radius);background:var(--gray-100);color:var(--gray-500);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:0.78rem;flex-shrink:0;">
                     <?= strtoupper(substr($complaint['display_name'] ?? 'A', 0, 1)) ?>
@@ -118,8 +137,10 @@ $filters    = $filters    ?? [];
                   </div>
                 </div>
               </td>
-              <td style="font-size:0.82rem;color:var(--gray-500);"><?= date('M j, Y', strtotime($complaint['created_at'])) ?></td>
-              <td>
+              <td data-label="Date" data-col="date" style="font-size:0.82rem;color:var(--gray-500);"> 
+                <?= date('M j, Y', strtotime($complaint['created_at'])) ?>
+              </td>
+              <td data-label="Status" data-col="status">
                 <?php
                   $stBadge = match($complaint['status']) {
                     'pending'     => 'badge-open',
@@ -132,15 +153,13 @@ $filters    = $filters    ?? [];
                   <?= ucfirst(str_replace('_', ' ', $complaint['status'])) ?>
                 </span>
               </td>
-              <td>
-                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <td data-label="Actions" data-col="actions">
                   <button type="button" class="btn btn-secondary btn-sm" onclick='showComplaintModal(<?= htmlspecialchars(json_encode($complaint)) ?>)'>
                     <i class="fa-solid fa-eye"></i> View
                   </button>
-                  <button type="button" class="btn btn-secondary btn-sm" onclick="confirmDeleteComplaint(<?= (int)$complaint['id'] ?>, <?= htmlspecialchars(json_encode($complaint['title'])) ?>)" style="color:#ef4444;">
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="confirmDeleteComplaint(<?= (int)$complaint['id'] ?>, <?= htmlspecialchars(json_encode($complaint['title'])) ?>)" style="color:var(--color-danger);">
                     <i class="fa-solid fa-trash"></i> Delete
                   </button>
-                </div>
               </td>
             </tr>
           <?php endforeach; ?>

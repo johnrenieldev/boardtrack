@@ -12,7 +12,7 @@
       <p style="color: #6b7280; font-size: 0.9375rem; margin-bottom: 1.5rem;">
         Your email has been verified. You can now proceed to complete your personality questionnaire.
       </p>
-      <a href="<?= Router::url('tenant/personality') ?>" class="btn btn-primary" style="width: 100%; padding: 0.75rem;">
+      <a href="<?= Router::url('personality/personality') ?>" class="btn btn-primary" style="width: 100%; padding: 0.75rem;">
         <i class="fa-solid fa-arrow-right"></i>
         Continue to Questionnaire
       </a>

@@ -16,18 +16,18 @@ $landlordGcash = $landlordGcash ?? ['has_qr' => false, 'qr_url' => null, 'landlo
 </div>
 
 <div class="card" style="max-width: 640px;">
-  <div style="padding: 20px 24px; border-bottom: 1px solid var(--gray-100); background: var(--gray-50);">
+  <div style="padding: 20px 24px; border-bottom: 1px solid var(--color-border); background: var(--color-canvas);">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
       <div>
-        <div style="font-weight:600;font-size:1.05rem;color:var(--gray-900);"><?= htmlspecialchars($bill['bill_name']) ?></div>
-        <div style="font-size:0.82rem;color:var(--gray-500);margin-top:4px;">
+        <div style="font-weight:600;font-size:1.05rem;color:var(--color-text-primary);"><?= htmlspecialchars($bill['bill_name']) ?></div>
+        <div style="font-size:0.82rem;color:var(--color-text-secondary);margin-top:4px;">
           <?= htmlspecialchars(($bill['billing_period_start'] ?? '') . ' — ' . ($bill['billing_period_end'] ?? '')) ?>
         </div>
       </div>
       <div style="text-align:right;">
-        <div style="font-size:0.75rem;color:var(--gray-500);">Amount due</div>
-        <div style="font-size:1.35rem;font-weight:700;color:var(--primary);">₱<?= number_format($bill['amount'], 2) ?></div>
-        <div style="font-size:0.78rem;color:var(--danger);">Due <?= date('M j, Y', strtotime($bill['due_date'])) ?></div>
+        <div style="font-size:0.75rem;color:var(--color-text-secondary);">Amount due</div>
+        <div style="font-size:1.35rem;font-weight:700;color:var(--color-brand);">₱<?= number_format($bill['amount'], 2) ?></div>
+        <div style="font-size:0.78rem;color:var(--color-danger);">Due <?= date('M j, Y', strtotime($bill['due_date'])) ?></div>
       </div>
     </div>
   </div>

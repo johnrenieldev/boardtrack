@@ -71,15 +71,15 @@ $pagination = $pagination ?? [];
         <tbody>
           <?php foreach ($logs as $log): ?>
             <tr>
-              <td>
+              <td data-label="Timestamp">
                 <div class="td-name" style="font-size:0.82rem;"><?= date('g:i A', strtotime($log['created_at'])) ?></div>
                 <div class="td-sub"><?= date('M j, Y', strtotime($log['created_at'])) ?></div>
               </td>
-              <td>
+              <td data-label="User">
                 <div class="td-name"><?= htmlspecialchars($log['user_name'] ?? 'System') ?></div>
                 <div class="td-sub"><?= ucfirst($log['user_role'] ?? 'N/A') ?></div>
               </td>
-              <td>
+              <td data-label="Action">
                 <?php
                   $actionBadge = match($log['action']) {
                     'create'  => 'badge-active',
@@ -106,12 +106,12 @@ $pagination = $pagination ?? [];
                   <i class="fa-solid <?= $actionIcon ?>"></i> <?= ucfirst($log['action']) ?>
                 </span>
               </td>
-              <td>
+              <td data-label="Entity">
                 <span style="background:var(--gray-100);padding:3px 8px;border-radius:4px;font-size:0.78rem;font-weight:500;color:var(--gray-600);">
                   <?= ucfirst($log['entity_type']) ?><?php if ($log['entity_id']): ?> #<?= $log['entity_id'] ?><?php endif; ?>
                 </span>
               </td>
-              <td>
+              <td data-label="Description">
                 <?php
                   // Description is stored inside new_values JSON as _description
                   $desc = '';
@@ -130,7 +130,7 @@ $pagination = $pagination ?? [];
                   </button>
                 <?php endif; ?>
               </td>
-              <td>
+              <td data-label="IP">
                 <code style="background:var(--gray-100);padding:3px 6px;border-radius:4px;font-size:0.78rem;color:var(--gray-500);"><?= htmlspecialchars($log['ip_address'] ?? 'N/A') ?></code>
               </td>
             </tr>

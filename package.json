@@ -1,0 +1,14 @@
+{
+  "name": "boardtrack",
+  "version": "1.0.0",
+  "description": "BoardTrack - Boarding House Management System",
+  "scripts": {
+    "build": "npx tailwindcss -i ./public/assets/css/input.css -o ./public/assets/css/output.css --minify",
+    "watch": "npx tailwindcss -i ./public/assets/css/input.css -o ./public/assets/css/output.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.0",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.32"
+  }
+}

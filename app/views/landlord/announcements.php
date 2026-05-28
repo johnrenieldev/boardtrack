@@ -21,18 +21,32 @@ $statistics    = $statistics    ?? [];
 </div>
 
 <!-- Stats -->
-<div class="stats-grid" style="grid-template-columns:repeat(3,1fr);">
+<div class="stats-grid">
   <div class="stat-card">
-    <div class="stat-label"><i class="fa-solid fa-bullhorn" style="margin-right:4px;"></i> Total</div>
+    <div class="stat-header">
+      <div class="stat-icon-box"><i class="fa-solid fa-bullhorn"></i></div>
+      <div class="stat-label">Total Posts</div>
+    </div>
     <div class="stat-value"><?= $statistics['total'] ?? 0 ?></div>
+    <div class="stat-footer">Across <span>all time</span></div>
   </div>
+
   <div class="stat-card">
-    <div class="stat-label"><i class="fa-solid fa-circle-check" style="margin-right:4px;"></i> Active</div>
+    <div class="stat-header">
+      <div class="stat-icon-box"><i class="fa-solid fa-circle-check"></i></div>
+      <div class="stat-label">Active</div>
+    </div>
     <div class="stat-value"><?= $statistics['active'] ?? 0 ?></div>
+    <div class="stat-footer">Currently <span>visible</span></div>
   </div>
+
   <div class="stat-card">
-    <div class="stat-label"><i class="fa-solid fa-eye-slash" style="margin-right:4px;"></i> Inactive</div>
+    <div class="stat-header">
+      <div class="stat-icon-box"><i class="fa-solid fa-eye-slash"></i></div>
+      <div class="stat-label">Inactive</div>
+    </div>
     <div class="stat-value"><?= $statistics['expired'] ?? 0 ?></div>
+    <div class="stat-footer">Archived <span>notices</span></div>
   </div>
 </div>
 
@@ -63,11 +77,11 @@ $statistics    = $statistics    ?? [];
         <tbody>
           <?php foreach ($announcements as $a): ?>
             <tr>
-              <td>
+              <td data-label="Title">
                 <div class="td-name"><?= htmlspecialchars($a['title']) ?></div>
                 <div class="td-sub">By <?= htmlspecialchars($a['author_name']) ?></div>
               </td>
-              <td>
+              <td data-label="Priority">
                 <?php
                   $prBadge = match($a['priority']) {
                     'urgent' => 'badge-urgent',
@@ -79,18 +93,18 @@ $statistics    = $statistics    ?? [];
                   <?= ucfirst($a['priority']) ?>
                 </span>
               </td>
-              <td style="font-size:0.82rem;color:var(--gray-500);"><?= date('M j, Y', strtotime($a['created_at'])) ?></td>
-              <td style="font-size:0.82rem;color:var(--gray-500);"><?= $a['event_date'] ? date('M j, Y', strtotime($a['event_date'])) : '—' ?></td>
-              <td>
+              <td data-label="Posted" style="font-size:0.82rem;color:var(--gray-500);"><?= date('M j, Y', strtotime($a['created_at'])) ?></td>
+              <td data-label="Event Date" style="font-size:0.82rem;color:var(--gray-500);"><?= $a['event_date'] ? date('M j, Y', strtotime($a['event_date'])) : '—' ?></td>
+              <td data-label="Status">
                 <span class="badge <?= $a['is_active'] ? 'badge-active' : 'badge-normal' ?>">
                   <?= $a['is_active'] ? 'Active' : 'Inactive' ?>
                 </span>
               </td>
-              <td>
+              <td data-label="Actions">
                 <div style="display:flex;align-items:center;gap:4px;">
-                  <a href="<?= Router::url('landlord/edit-announcement/' . $a['id']) ?>" class="btn btn-secondary btn-sm btn-icon" title="Edit">
+                  <button type="button" class="btn btn-secondary btn-sm btn-icon" title="Edit" onclick="openEditModal(<?= htmlspecialchars(json_encode($a)) ?>)">
                     <i class="fa-solid fa-pen"></i>
-                  </a>
+                  </button>
                   <form action="<?= Router::url('landlord/toggle-announcement') ?>" method="POST" style="display:inline;">
                     <input type="hidden" name="announcement_id" value="<?= $a['id'] ?>">
                     <button type="submit" class="btn btn-sm btn-icon <?= $a['is_active'] ? 'btn-secondary' : 'btn-success' ?>" title="<?= $a['is_active'] ? 'Deactivate' : 'Activate' ?>">
@@ -159,6 +173,47 @@ $statistics    = $statistics    ?? [];
   </div>
 </div>
 
+<!-- Edit Announcement Modal -->
+<div class="modal-overlay" id="editModal" style="display:none;">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span class="modal-title">Edit Announcement</span>
+      <button class="modal-close" onclick="closeModal('editModal')">&times;</button>
+    </div>
+    <form action="<?= Router::url('landlord/update-announcement') ?>" method="POST">
+      <div class="modal-body">
+        <input type="hidden" name="announcement_id" id="edit_announcement_id" value="">
+        <div class="form-group">
+          <label class="form-label">Title <span class="req">*</span></label>
+          <input type="text" name="title" id="edit_title" class="form-input" required placeholder="e.g., Monthly Rent Reminder">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Content <span class="req">*</span></label>
+          <textarea name="content" id="edit_content" class="form-textarea" rows="5" required placeholder="Write your announcement here..."></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Priority</label>
+            <select name="priority" id="edit_priority" class="form-select">
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Event Date (Optional)</label>
+            <input type="date" name="event_date" id="edit_event_date" class="form-input">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('editModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Update Announcement</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
 function openModal(id) {
   document.getElementById(id).style.display = 'flex';
@@ -167,6 +222,14 @@ function openModal(id) {
 function closeModal(id) {
   document.getElementById(id).style.display = 'none';
   document.body.style.overflow = '';
+}
+function openEditModal(announcement) {
+  document.getElementById('edit_announcement_id').value = announcement.id;
+  document.getElementById('edit_title').value = announcement.title;
+  document.getElementById('edit_content').value = announcement.content;
+  document.getElementById('edit_priority').value = announcement.priority;
+  document.getElementById('edit_event_date').value = announcement.event_date || '';
+  openModal('editModal');
 }
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {

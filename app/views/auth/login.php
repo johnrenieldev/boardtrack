@@ -25,26 +25,28 @@ unset($_SESSION['form_old']);
         Manage tenants, billing, rooms, complaints, and announcements from a single secure dashboard.
       </p>
     </div>
-    <div class="text-gray-600 text-xs">For Academic Use Only</div>
   </div>
 
   <!-- Right form panel -->
-  <div class="flex-1 flex items-center justify-center p-6 bg-gray-50">
+  <div class="flex-1 flex items-center justify-center px-6 pt-10 pb-20 md:p-6 bg-gray-50">
     <div class="w-full max-w-sm">
 
       <a href="<?= Router::url('home/index') ?>" class="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 mb-8">
-        <i class="fa-solid fa-arrow-left text-xs"></i> Back to home
+        <i class="fa-solid fa-arrow-left text-xs"></i> Back
       </a>
 
+      <!-- Login Form -->
       <h1 class="font-heading font-bold text-2xl text-gray-900 mb-1">Sign in</h1>
       <p class="text-gray-500 text-sm mb-6">Enter your credentials to continue.</p>
 
       <?php if (!empty($errors)): ?>
         <?php foreach ($errors as $f): ?>
-          <div class="alert-public <?= $f['type'] === 'error' ? 'error' : 'success' ?>">
-            <i class="fa-solid <?= $f['type'] === 'error' ? 'fa-circle-xmark' : 'fa-circle-check' ?> flex-shrink-0"></i>
-            <?= htmlspecialchars($f['message']) ?>
-          </div>
+          <?php if (empty($f['field'])): ?>
+            <div class="alert-public <?= $f['type'] === 'error' ? 'error' : 'success' ?>">
+              <i class="fa-solid <?= $f['type'] === 'error' ? 'fa-circle-xmark' : 'fa-circle-check' ?> flex-shrink-0"></i>
+              <?= htmlspecialchars($f['message']) ?>
+            </div>
+          <?php endif; ?>
         <?php endforeach; ?>
       <?php endif; ?>
 
@@ -63,6 +65,7 @@ unset($_SESSION['form_old']);
       </div>
 
       <form action="<?= Router::url('auth/loginPost') ?>" method="POST">
+        <input type="hidden" name="csrf_token" value="<?= $this->csrf() ?>">
         <input type="hidden" name="role_hint" id="roleHint" value="tenant">
 
         <div class="mb-4">
@@ -70,11 +73,15 @@ unset($_SESSION['form_old']);
           <input class="auth-input" type="email" id="email" name="email"
                  value="<?= htmlspecialchars($oldEmail) ?>"
                  placeholder="you@example.com" autocomplete="email" required>
+          <?php if (!empty($errors['email'])): ?>
+            <div class="form-error"><?= htmlspecialchars($errors['email']['message']) ?></div>
+          <?php endif; ?>
         </div>
 
         <div class="mb-6">
           <div class="flex items-center justify-between mb-1">
             <label class="auth-label" for="password">Password</label>
+            <a href="<?= Router::url('auth/forgotPassword') ?>" class="text-xs font-semibold text-brand-600 hover:underline">Forgot?</a>
           </div>
           <div class="relative">
             <input class="auth-input" type="password" id="password" name="password"
@@ -85,6 +92,9 @@ unset($_SESSION['form_old']);
               <i class="fa-solid fa-eye text-sm" id="eyeIcon"></i>
             </button>
           </div>
+          <?php if (!empty($errors['password'])): ?>
+            <div class="form-error"><?= htmlspecialchars($errors['password']['message']) ?></div>
+          <?php endif; ?>
         </div>
 
         <button type="submit" class="auth-btn">Sign in</button>

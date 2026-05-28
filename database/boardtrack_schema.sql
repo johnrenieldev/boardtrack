@@ -28,11 +28,14 @@ CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
     role ENUM('landlord', 'tenant') NOT NULL DEFAULT 'tenant',
-    status ENUM('pending', 'active', 'rejected', 'moved_out', 'waiting_list', 'unverified') DEFAULT 'unverified',
+    status ENUM('pending', 'approved', 'rejected', 'moved_out') DEFAULT 'pending',
     phone VARCHAR(20) DEFAULT NULL,
     gcash_qr_path VARCHAR(255) DEFAULT NULL,
+    totp_enabled BOOLEAN DEFAULT FALSE,
+    totp_secret VARCHAR(32) DEFAULT NULL,
+    totp_recovery_codes JSON DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     last_login TIMESTAMP NULL,
@@ -84,6 +87,7 @@ CREATE TABLE rooms (
     monthly_rent DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     description TEXT,
     amenities JSON,
+    air_conditioned BOOLEAN DEFAULT FALSE,
     status ENUM('available', 'occupied', 'maintenance', 'reserved') DEFAULT 'available',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -101,6 +105,7 @@ CREATE TABLE tenants (
     user_id INT NOT NULL UNIQUE,
     room_id INT DEFAULT NULL,
     room_preference ENUM('single', 'shared') DEFAULT NULL,
+    air_conditioned_preference BOOLEAN DEFAULT FALSE,
     id_file_path VARCHAR(255) DEFAULT NULL,
     id_verified BOOLEAN DEFAULT FALSE,
     id_verified_at TIMESTAMP NULL,
@@ -187,10 +192,18 @@ CREATE TABLE bills (
     billing_period_start DATE NOT NULL,
     billing_period_end DATE NOT NULL,
     amount DECIMAL(10,2) NOT NULL,
+    amount_paid DECIMAL(10,2) DEFAULT 0.00,
+    partial_payment_status ENUM('none', 'partial', 'full') DEFAULT 'none',
+    last_payment_date DATE DEFAULT NULL,
     due_date DATE NOT NULL,
-    status ENUM('unpaid', 'pending_verification', 'paid', 'overdue', 'cancelled') DEFAULT 'unpaid',
+    status ENUM('unpaid', 'pending_verification', 'paid', 'overdue', 'cancelled', 'partial') DEFAULT 'unpaid',
     created_by INT NOT NULL,
     paid_at DATETIME DEFAULT NULL,
+    reminder_sent_1 BOOLEAN DEFAULT FALSE,
+    reminder_sent_2 BOOLEAN DEFAULT FALSE,
+    reminder_sent_3 BOOLEAN DEFAULT FALSE,
+    reminder_dates JSON DEFAULT NULL,
+    payment_plan_id INT DEFAULT NULL,
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -215,6 +228,7 @@ CREATE TABLE payments (
     proof_file_path VARCHAR(255) NOT NULL,
     proof_file_name VARCHAR(100) DEFAULT NULL,
     notes TEXT,
+    is_partial BOOLEAN DEFAULT FALSE,
     status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
     reviewed_by INT DEFAULT NULL,
     review_notes TEXT,
@@ -320,7 +334,7 @@ CREATE TABLE audit_logs (
 -- Insert default landlord account (password: landlord123)
 -- You should change this password immediately after setup
 INSERT INTO users (name, email, password, role, status) VALUES 
-('System Landlord', 'landlord@boardtrack.local', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'landlord', 'active');
+('System Landlord', 'landlord@boardtrack.local', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'landlord', 'approved');
 
 -- Insert personality questions
 INSERT INTO personality_questions (category, question_text, weight, display_order) VALUES

@@ -32,7 +32,6 @@ unset($_SESSION['flash']);
         Enter it below to complete sign-in.
       </p>
     </div>
-    <div class="text-gray-600 text-xs">For Academic Use Only</div>
   </div>
 
   <!-- ── Right OTP panel ── -->

@@ -27,22 +27,33 @@ $resolvedCount     = count(array_filter($complaints, fn($c) => $c['status'] === 
 </div>
 
 <!-- Stats -->
-<div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
-  <div class="stat-card">
-    <div class="stat-label">Total</div>
-    <div class="stat-value"><?= $totalComplaints ?></div>
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  <div class="card p-4">
+    <div class="text-[0.65rem] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+      <i class="fa-solid fa-folder-open text-brand-500"></i> Total
+    </div>
+    <div class="text-2xl font-black text-gray-900 leading-none"><?= $totalComplaints ?></div>
   </div>
-  <div class="stat-card">
-    <div class="stat-label">Pending</div>
-    <div class="stat-value"><?= $pendingCount ?></div>
+  
+  <div class="card p-4">
+    <div class="text-[0.65rem] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+      <i class="fa-solid fa-clock text-warning-500"></i> Pending
+    </div>
+    <div class="text-2xl font-black text-gray-900 leading-none"><?= $pendingCount ?></div>
   </div>
-  <div class="stat-card">
-    <div class="stat-label">In Progress</div>
-    <div class="stat-value"><?= $inProgressCount ?></div>
+  
+  <div class="card p-4">
+    <div class="text-[0.65rem] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+      <i class="fa-solid fa-spinner text-brand-500"></i> In Progress
+    </div>
+    <div class="text-2xl font-black text-gray-900 leading-none"><?= $inProgressCount ?></div>
   </div>
-  <div class="stat-card">
-    <div class="stat-label">Resolved</div>
-    <div class="stat-value"><?= $resolvedCount ?></div>
+  
+  <div class="card p-4">
+    <div class="text-[0.65rem] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+      <i class="fa-solid fa-circle-check text-success-500"></i> Resolved
+    </div>
+    <div class="text-2xl font-black text-gray-900 leading-none"><?= $resolvedCount ?></div>
   </div>
 </div>
 
@@ -65,10 +76,10 @@ $resolvedCount     = count(array_filter($complaints, fn($c) => $c['status'] === 
         <thead>
           <tr>
             <th>Title</th>
-            <th>Category</th>
-            <th>Status</th>
+            <th data-col="category">Category</th>
+            <th data-col="status">Status</th>
             <th>Submitted</th>
-            <th>Actions</th>
+            <th data-col="actions">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -88,7 +99,7 @@ $resolvedCount     = count(array_filter($complaints, fn($c) => $c['status'] === 
           foreach ($complaints as $idx => $complaint):
           ?>
           <tr>
-            <td>
+            <td data-label="Title">
               <div class="td-name">
                 <?= htmlspecialchars($complaint['title']) ?>
                 <?php if (!empty($complaint['is_anonymous'])): ?>
@@ -96,28 +107,30 @@ $resolvedCount     = count(array_filter($complaints, fn($c) => $c['status'] === 
                 <?php endif; ?>
               </div>
             </td>
-            <td>
+            <td data-label="Category" data-col="category">
               <span class="badge <?= $categoryBadge[$complaint['category']] ?? 'badge-normal' ?>">
                 <?= ucfirst(str_replace('_', ' ', $complaint['category'])) ?>
               </span>
             </td>
-            <td>
+            <td data-label="Status" data-col="status">
               <span class="badge <?= $statusBadge[$complaint['status']] ?? 'badge-normal' ?>">
                 <?= ucfirst(str_replace('_', ' ', $complaint['status'])) ?>
               </span>
             </td>
-            <td style="color:var(--gray-400);font-size:0.82rem;"><?= date('M d, Y', strtotime($complaint['created_at'])) ?></td>
-            <td>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                <button type="button" class="btn btn-secondary btn-sm" onclick="openDetailModal(<?= $idx ?>)">
-                  <i class="fa-solid fa-eye"></i> View
+            <td data-label="Submitted" style="color:var(--color-text-muted);font-size:0.82rem;"> 
+              <?= date('M d, Y', strtotime($complaint['created_at'])) ?>
+            </td>
+            <td data-label="Actions" data-col="actions">
+              <div style="display:flex;gap:4px;justify-content:end;">
+                <button type="button" class="btn btn-secondary btn-sm btn-icon" onclick="openDetailModal(<?= $idx ?>)" title="View Details">
+                  <i class="fa-solid fa-eye text-xs"></i>
                 </button>
                 <?php if ($complaint['status'] === 'pending'): ?>
-                  <button type="button" class="btn btn-secondary btn-sm" onclick="openEditModal(<?= $idx ?>)" style="color:var(--primary);">
-                    <i class="fa-solid fa-pen"></i> Edit
+                  <button type="button" class="btn btn-secondary btn-sm btn-icon" onclick="openEditModal(<?= $idx ?>)" style="color:var(--primary);" title="Edit">
+                    <i class="fa-solid fa-pen text-xs"></i>
                   </button>
-                  <button type="button" class="btn btn-secondary btn-sm" onclick="confirmDelete(<?= (int)$complaint['id'] ?>, <?= htmlspecialchars(json_encode($complaint['title'])) ?>)" style="color:#ef4444;">
-                    <i class="fa-solid fa-trash"></i> Delete
+                  <button type="button" class="btn btn-secondary btn-sm btn-icon" onclick="confirmDelete(<?= (int)$complaint['id'] ?>, <?= htmlspecialchars(json_encode($complaint['title'])) ?>)" style="color:var(--color-danger);" title="Delete">
+                    <i class="fa-solid fa-trash text-xs"></i>
                   </button>
                 <?php endif; ?>
               </div>
@@ -154,16 +167,26 @@ $resolvedCount     = count(array_filter($complaints, fn($c) => $c['status'] === 
       </div>
       <div style="margin-bottom:16px;">
         <div class="detail-label" style="margin-bottom:6px;">Description</div>
-        <div id="detailDescription" style="font-size:0.85rem;color:var(--gray-700);line-height:1.6;padding:12px;background:var(--gray-50);border-radius:var(--radius);"></div>
+        <div id="detailDescription" style="font-size:0.85rem;color:var(--color-text-primary);line-height:1.6;padding:12px;background:var(--color-canvas);border-radius:var(--radius);"></div>
       </div>
       <div id="detailResponseSection" style="display:none;">
-        <div style="border-top:1px solid var(--gray-200);padding-top:14px;">
+        <div style="border-top:1px solid var(--color-border);padding-top:14px;">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-            <i class="fa-solid fa-reply" style="color:var(--gray-500);font-size:0.8rem;"></i>
-            <span style="font-weight:600;font-size:0.85rem;color:var(--gray-700);">Landlord's Response</span>
+            <i class="fa-solid fa-reply" style="color:var(--color-text-secondary);font-size:0.8rem;"></i>
+            <span style="font-weight:600;font-size:0.85rem;color:var(--color-text-primary);">Landlord's Response</span>
           </div>
-          <div id="detailResponse" style="font-size:0.85rem;color:var(--gray-700);line-height:1.6;padding:12px;background:var(--gray-50);border-radius:var(--radius);"></div>
-          <div id="detailResponseDate" style="font-size:0.75rem;color:var(--gray-400);margin-top:6px;"></div>
+          <div id="detailResponse" style="font-size:0.85rem;color:var(--color-text-primary);line-height:1.6;padding:12px;background:var(--color-canvas);border-radius:var(--radius);"></div>
+          <div id="detailResponseDate" style="font-size:0.75rem;color:var(--color-text-muted);margin-top:6px;"></div>
+        </div>
+      </div>
+      <div id="detailTenantResponseSection" style="display:none;">
+        <div style="border-top:1px solid var(--color-border);padding-top:14px;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+            <i class="fa-solid fa-comment-dots" style="color:var(--color-text-secondary);font-size:0.8rem;"></i>
+            <span style="font-weight:600;font-size:0.85rem;color:var(--color-text-primary);">Your Response</span>
+          </div>
+          <div id="detailTenantResponse" style="font-size:0.85rem;color:var(--color-text-primary);line-height:1.6;padding:12px;background:var(--color-canvas);border-radius:var(--radius);"></div>
+          <div id="detailTenantResponseDate" style="font-size:0.75rem;color:var(--color-text-muted);margin-top:6px;"></div>
         </div>
       </div>
     </div>
@@ -194,10 +217,10 @@ $resolvedCount     = count(array_filter($complaints, fn($c) => $c['status'] === 
           </select>
         </div>
         <div class="form-group" id="anonymousSection" style="display:none;">
-          <label style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:var(--gray-50);border-radius:var(--radius);border:1px solid var(--gray-200);cursor:pointer;">
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:var(--color-canvas);border-radius:var(--radius);border:1px solid var(--color-border);cursor:pointer;">
             <input type="checkbox" name="is_anonymous" id="is_anonymous" value="1" style="margin-top:2px;">
             <div>
-              <div style="font-size:0.85rem;font-weight:500;color:var(--gray-900);">Submit Anonymously</div>
+              <div style="font-size:0.85rem;font-weight:500;color:var(--color-text-primary);">Submit Anonymously</div>
               <div class="form-help" style="margin-top:2px;">Your identity will be hidden from the complaint view.</div>
             </div>
           </label>
@@ -297,6 +320,14 @@ function openDetailModal(idx) {
     document.getElementById('detailResponseDate').textContent = c.resolved_at ? 'Responded on ' + c.resolved_at : '';
   } else {
     respSection.style.display = 'none';
+  }
+  var tenantRespSection = document.getElementById('detailTenantResponseSection');
+  if (c.tenant_response) {
+    tenantRespSection.style.display = 'block';
+    document.getElementById('detailTenantResponse').innerHTML = c.tenant_response.replace(/\n/g, '<br>');
+    document.getElementById('detailTenantResponseDate').textContent = c.tenant_response_at ? 'Responded on ' + c.tenant_response_at : '';
+  } else {
+    tenantRespSection.style.display = 'none';
   }
   openModal('detailModal');
 }
