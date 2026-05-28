@@ -1,10 +1,13 @@
 <?php
-// EMAIL (PHPMailer / SMTP)
-// Keep real credentials in server environment variables, not in source code.
-define('MAIL_ENABLED',   filter_var(getenv('MAIL_ENABLED') ?: 'false', FILTER_VALIDATE_BOOLEAN));
-define('MAIL_HOST',      getenv('MAIL_HOST') ?: 'smtp.hostinger.com');
-define('MAIL_PORT',      (int) (getenv('MAIL_PORT') ?: 465));
-define('MAIL_USERNAME',  getenv('MAIL_USERNAME') ?: '');
-define('MAIL_PASSWORD',  getenv('MAIL_PASSWORD') ?: '');
-define('MAIL_FROM',      getenv('MAIL_FROM') ?: (MAIL_USERNAME ?: 'no-reply@localhost'));
-define('MAIL_FROM_NAME', getenv('MAIL_FROM_NAME') ?: APP_NAME);
+/**
+ * BoardTrack — Live Email Configuration
+ * This file is private and ignored by Git for security.
+ */
+
+define('MAIL_ENABLED',   true);
+define('MAIL_HOST',      'smtp.hostinger.com');
+define('MAIL_PORT',      465);
+define('MAIL_USERNAME',  'support@bsit2a.com');
+define('MAIL_PASSWORD',  'Support098.');
+define('MAIL_FROM',      'support@bsit2a.com');
+define('MAIL_FROM_NAME', 'BoardTrack');
