@@ -8,56 +8,29 @@ $role = 'tenant';
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title><?= htmlspecialchars($pageTitle ?? 'BoardTrack') ?></title>
+  <!-- Local Font Awesome for offline support -->
+  <link rel="stylesheet" href="<?= Router::asset('css/font-awesome.min.css') ?>">
+  <!-- Google Fonts with system font fallbacks -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-  <link rel="stylesheet" href="<?= Router::asset('css/dashboard.css') ?>">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* System font fallbacks for offline mode */
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+    h1, h2, h3, h4, h5, h6 { font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+  </style>
+  <link rel="stylesheet" href="<?= Router::asset('css/output.css') ?>?v=<?= time() ?>">
+  <link rel="stylesheet" href="<?= Router::asset('css/dashboard.css') ?>?v=<?= time() ?>">
+  <link rel="stylesheet" href="<?= Router::asset('css/responsive-fixes.css') ?>?v=<?= time() ?>">
+  <link rel="stylesheet" href="<?= Router::asset('css/alerts.css') ?>?v=<?= time() ?>">
   <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand: {
-              50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa',
-              500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a',
-            },
-            success: {
-              50: '#f0fdf4', 100: '#dcfce7', 200: '#bbf7d0', 300: '#86efac', 400: '#4ade80',
-              500: '#22c55e', 600: '#16a34a', 700: '#15803d', 800: '#166534', 900: '#14532d',
-            },
-            warning: {
-              50: '#fffbeb', 100: '#fef3c7', 200: '#fde68a', 300: '#fcd34d', 400: '#fbbf24',
-              500: '#f59e0b', 600: '#d97706', 700: '#b45309', 800: '#92400e', 900: '#78350f',
-            },
-            danger: {
-              50: '#fef2f2', 100: '#fee2e2', 200: '#fecaca', 300: '#fca5a5', 400: '#f87171',
-              500: '#ef4444', 600: '#dc2626', 700: '#b91c1c', 800: '#991b1b', 900: '#7f1d1d',
-            },
-          },
-          fontFamily: {
-            sans: ['Inter', 'system-ui', 'sans-serif'],
-            heading: ['Poppins', 'system-ui', 'sans-serif'],
-          },
-          boxShadow: {
-            'xs': 'var(--shadow-xs)',
-            'sm': 'var(--shadow-sm)',
-            'md': 'var(--shadow-md)',
-            'lg': 'var(--shadow-lg)',
-          },
-          borderRadius: {
-            'xs': 'var(--radius-xs)',
-            'sm': 'var(--radius-sm)',
-            'md': 'var(--radius-md)',
-            'lg': 'var(--radius-lg)',
-            'xl': 'var(--radius-xl)',
-          },
-        }
-      }
-    }
+    // Global base URL for AJAX requests (fixes notification polling in subdirectories)
+    window.BOARDTRACK_BASE_URL = '<?= rtrim(BASE_URL, '/') ?>/index.php';
   </script>
 </head>
 <body class="dashboard-body overflow-x-hidden bg-gray-50"
@@ -80,9 +53,12 @@ $role = 'tenant';
 
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<!-- Local SweetAlert2 for offline support -->
+<script src="<?= Router::asset('js/sweetalert2.all.min.js') ?>"></script>
+<script src="<?= Router::asset('js/responsive-handler.js') ?>?v=<?= time() ?>"></script>
 <script src="<?= Router::asset('js/confirmActions.js') ?>"></script>
-<script src="<?= Router::asset('js/notifications.js') ?>"></script>
+<script src="<?= Router::asset('js/notifications.js') ?>?v=<?= time() ?>"></script>
+<script src="<?= Router::asset('js/grid-scroll-hint.js') ?>?v=<?= time() ?>"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   var sidebar  = document.getElementById('sidebar');
@@ -90,19 +66,33 @@ document.addEventListener('DOMContentLoaded', function() {
   var closeBtn = document.getElementById('sidebarClose');
   var overlay  = document.getElementById('sidebarOverlay');
 
-  if (toggle)   toggle.addEventListener('click',   function() { sidebar.classList.add('open'); overlay.classList.add('active'); });
-  if (closeBtn) closeBtn.addEventListener('click', function() { sidebar.classList.remove('open'); overlay.classList.remove('active'); });
-  if (overlay)  overlay.addEventListener('click',  function() { sidebar.classList.remove('open'); overlay.classList.remove('active'); });
+  function openSidebar() {
+    sidebar.classList.add('open');
+    overlay.classList.add('active');
+    toggle.setAttribute('aria-expanded', 'true');
+    overlay.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeSidebar() {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('active');
+    toggle.setAttribute('aria-expanded', 'false');
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+
+  if (toggle)   toggle.addEventListener('click', openSidebar);
+  if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+  if (overlay)  overlay.addEventListener('click', closeSidebar);
 
   document.addEventListener('click', function(e) {
     if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('open')) {
       if (!sidebar.contains(e.target) && toggle && !toggle.contains(e.target) && !overlay.contains(e.target)) {
-        sidebar.classList.remove('open');
-        overlay.classList.remove('active');
+        closeSidebar();
       }
     }
   });
 });
 </script>
+<script src="<?= Router::asset('js/alerts.js') ?>?v=<?= time() ?>"></script>
 </body>
 </html>

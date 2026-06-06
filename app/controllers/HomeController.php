@@ -106,21 +106,26 @@ class HomeController extends Controller
 
         require_once ROOT_PATH . '/app/helpers/BoardTrackMail.php';
 
-        $emailSent = BoardTrackMail::contactUs(
-            $supportEmail,
-            $supportName,
-            $name,
-            $email,
-            $subjectLabels[$subject],
-            $message
-        );
+        try {
+            $emailSent = BoardTrackMail::contactUs(
+                $supportEmail,
+                $supportName,
+                $name,
+                $email,
+                $subjectLabels[$subject],
+                $message
+            );
 
-        if ($emailSent || !BoardTrackMail::isEnabled()) {
-            if (!BoardTrackMail::isEnabled()) {
-                error_log("[BoardTrack Contact Form] Mailer is disabled. Message received locally: Name={$name}, Email={$email}, Subject={$subjectLabels[$subject]}, Message={$message}");
+            if ($emailSent) {
+                echo json_encode(['success' => true, 'message' => 'Message sent successfully']);
+            } else {
+                error_log('[BoardTrack Contact Form] contactUs returned false. enabled=' . (BoardTrackMail::isEnabled() ? 'true' : 'false')
+                    . ' host=' . (defined('MAIL_HOST') ? MAIL_HOST : 'n/a')
+                    . ' port=' . (defined('MAIL_PORT') ? MAIL_PORT : 'n/a'));
+                echo json_encode(['success' => false, 'message' => 'Failed to send message. Please try again later.']);
             }
-            echo json_encode(['success' => true, 'message' => 'Message sent successfully']);
-        } else {
+        } catch (Throwable $t) {
+            error_log('[BoardTrack Contact Form] Exception: ' . $t->getMessage());
             echo json_encode(['success' => false, 'message' => 'Failed to send message. Please try again later.']);
         }
 

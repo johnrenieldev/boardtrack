@@ -17,10 +17,22 @@ class BoardTrackMail
 
     public static function send(string $toEmail, string $toName, string $subject, string $htmlBody): bool
     {
-        if (!self::isEnabled() || empty($toEmail) || !filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
+        if (!self::isEnabled()) {
+            error_log('[BoardTrack Mail] Skipped send because MAIL_ENABLED is false.');
             return false;
         }
-        return Mailer::send($toEmail, $toName, $subject, $htmlBody);
+
+        if (empty($toEmail) || !filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
+            error_log('[BoardTrack Mail] Skipped send because recipient email is invalid.');
+            return false;
+        }
+        
+        try {
+            return Mailer::send($toEmail, $toName, $subject, $htmlBody);
+        } catch (\Exception $e) {
+            error_log('[BoardTrack Mail] Failed to send to ' . $toEmail . ': ' . $e->getMessage());
+            return false;
+        }
     }
 
     public static function registrationReceived(string $email, string $name): bool
@@ -130,9 +142,9 @@ class BoardTrackMail
         return self::send($guardianEmail, $guardianName, 'Tenant Approval Notice | ' . APP_NAME, EmailTemplates::guardianTenantApproved($tenantName, $purpose));
     }
 
-    public static function tenantPaymentApproved(string $email, string $name, string $billName, float $amount, string $methodLabel = ''): bool
+    public static function tenantPaymentApproved(string $email, string $name, string $billName, float $amount, string $methodLabel = '', float $remainingBalance = 0): bool
     {
-        return self::send($email, $name, 'Payment Confirmed | ' . APP_NAME, EmailTemplates::tenantPaymentApproved($name, $billName, $amount, $methodLabel));
+        return self::send($email, $name, 'Payment Confirmed | ' . APP_NAME, EmailTemplates::tenantPaymentApproved($name, $billName, $amount, $methodLabel, $remainingBalance));
     }
 
     public static function tenantPaymentRejected(string $email, string $name, string $billName, float $amount, string $reason): bool
@@ -140,13 +152,13 @@ class BoardTrackMail
         return self::send($email, $name, 'Payment Rejected | ' . APP_NAME, EmailTemplates::tenantPaymentRejected($name, $billName, $amount, $reason));
     }
 
-    public static function guardianPaymentApproved(string $guardianEmail, string $guardianName, string $tenantName, string $billName, float $amount, string $purpose): bool
+    public static function guardianPaymentApproved(string $guardianEmail, string $guardianName, string $tenantName, string $billName, float $amount, string $purpose, float $remainingBalance = 0): bool
     {
         return self::send(
             $guardianEmail,
             $guardianName,
             'Payment Confirmed for ' . $tenantName . ' | ' . APP_NAME,
-            EmailTemplates::guardianPaymentApproved($tenantName, $billName, $amount, $purpose)
+            EmailTemplates::guardianPaymentApproved($tenantName, $billName, $amount, $purpose, $remainingBalance)
         );
     }
 
@@ -197,5 +209,90 @@ class BoardTrackMail
     public static function paymentOverdue(string $email, string $name, string $billName, float $amount, string $dueDate, int $daysOverdue): bool
     {
         return self::send($email, $name, 'Payment Overdue Notice | ' . APP_NAME, EmailTemplates::paymentOverdue($name, $billName, $amount, $dueDate, $daysOverdue));
+    }
+
+    /**
+     * Send overdue penalty notification to tenant
+     */
+    public static function tenantOverduePenalty(
+        string $email,
+        string $name,
+        string $billName,
+        float $originalAmount,
+        float $penaltyAmount,
+        float $newTotal,
+        int $monthsOverdue,
+        string $dueDate
+    ): bool {
+        return self::send(
+            $email,
+            $name,
+            'Overdue Penalty Applied | ' . APP_NAME,
+            EmailTemplates::tenantOverduePenalty($name, $billName, $originalAmount, $penaltyAmount, $newTotal, $monthsOverdue, $dueDate)
+        );
+    }
+
+    /**
+     * Send overdue penalty notification to guardian
+     */
+    public static function guardianOverduePenalty(
+        string $guardianEmail,
+        string $guardianName,
+        string $tenantName,
+        string $billName,
+        float $originalAmount,
+        float $penaltyAmount,
+        float $newTotal,
+        int $monthsOverdue,
+        string $dueDate
+    ): bool {
+        return self::send(
+            $guardianEmail,
+            $guardianName,
+            'Overdue Penalty Applied for ' . $tenantName . ' | ' . APP_NAME,
+            EmailTemplates::guardianOverduePenalty($guardianName, $tenantName, $billName, $originalAmount, $penaltyAmount, $newTotal, $monthsOverdue, $dueDate)
+        );
+    }
+
+    /**
+     * Send partial payment reminder to tenant
+     */
+    public static function tenantPaymentPartialReminder(
+        string $to,
+        string $name,
+        string $billName,
+        float $totalAmount,
+        float $amountPaid,
+        float $remaining,
+        string $dueDate
+    ): bool {
+        return self::send(
+            $to,
+            $name,
+            'Partial Payment Received — ₱' . number_format($remaining, 2) . ' Still Due | ' . APP_NAME,
+            EmailTemplates::tenantPaymentPartialReminder($name, $billName, $totalAmount, $amountPaid, $remaining, $dueDate)
+        );
+    }
+
+    /**
+     * Send partial payment reminder to guardian
+     */
+    public static function guardianPaymentPartialReminder(
+        string $guardianEmail,
+        string $guardianName,
+        string $tenantName,
+        string $billName,
+        float $totalAmount,
+        float $amountPaid,
+        float $remaining,
+        string $dueDate,
+        string $purpose
+    ): bool {
+        return self::send(
+            $guardianEmail,
+            $guardianName,
+            'Partial Payment for ' . $tenantName . ' — ₱' . number_format($remaining, 2) . ' Still Due | ' . APP_NAME,
+            EmailTemplates::guardianPaymentPartialReminder($guardianName, $tenantName, $billName, $totalAmount, $amountPaid, $remaining, $dueDate, $purpose)
+        );
     }
 }

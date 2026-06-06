@@ -42,30 +42,48 @@ foreach ($alerts as $f):
         <input type="email" name="email" class="form-input"
                value="<?= htmlspecialchars($user['email'] ?? '') ?>" required>
       </div>
-      <div class="form-group">
-        <label>Room Priority Preference</label>
-        <select name="room_type_preference" class="form-select">
-          <option value="single" <?= ($tenant['room_type_preference'] ?? '') === 'single' ? 'selected' : '' ?>>Single Room</option>
-          <option value="shared" <?= ($tenant['room_type_preference'] ?? '') === 'shared' ? 'selected' : '' ?>>Shared Room</option>
-        </select>
-        <div class="form-help">Helps the landlord assign you efficiently if you are on the waiting list.</div>
-      </div>
-      <div class="form-group">
-        <div style="display: flex; align-items: center; gap: 10px; padding: 8px 0;">
-          <input type="checkbox" name="air_conditioned_preference" id="aircon" value="1" 
-                 <?= !empty($tenant['air_conditioned_preference']) ? 'checked' : '' ?>
-                 style="width: 18px; h-18px; cursor: pointer;">
-          <label for="aircon" style="margin: 0; cursor: pointer; font-weight: 600;">I prefer an air-conditioned room</label>
+      <?php $hasRoom = !empty($tenant['room_id']); ?>
+      
+      <?php if ($hasRoom): ?>
+        <!-- Read-only display when room is assigned -->
+        <div class="form-group">
+          <label>Room Type Preference</label>
+          <input type="text" class="form-input" 
+                 value="<?= ucfirst($tenant['room_type_preference'] ?? 'Not set') ?>" 
+                 readonly disabled style="background-color: var(--gray-100); cursor: not-allowed;">
+          <div class="form-help" style="color: var(--color-text-secondary);">
+            <i class="fa-solid fa-lock"></i> Room assignment is managed by your landlord.
+          </div>
         </div>
-        <div class="form-help">This is a preference and depends on room availability.</div>
-      </div>
-      <div class="form-group">
-        <label>Gender <span class="text-danger">*</span></label>
-        <select name="gender" class="form-select" required>
-          <option value="male" <?= ($tenant['gender'] ?? '') === 'male' ? 'selected' : '' ?>>Male</option>
-          <option value="female" <?= ($tenant['gender'] ?? '') === 'female' ? 'selected' : '' ?>>Female</option>
-        </select>
-      </div>
+        <div class="form-group">
+          <label>Air-Conditioning Preference</label>
+          <input type="text" class="form-input" 
+                 value="<?= !empty($tenant['air_conditioned_preference']) ? 'Yes, I prefer A/C' : 'No preference' ?>" 
+                 readonly disabled style="background-color: var(--gray-100); cursor: not-allowed;">
+          <div class="form-help" style="color: var(--color-text-secondary);">
+            <i class="fa-solid fa-lock"></i> Room assignment is managed by your landlord.
+          </div>
+        </div>
+      <?php else: ?>
+        <!-- Editable only when no room is assigned yet -->
+        <div class="form-group">
+          <label>Room Priority Preference</label>
+          <select name="room_type_preference" class="form-select">
+            <option value="single" <?= ($tenant['room_type_preference'] ?? '') === 'single' ? 'selected' : '' ?>>Single Room</option>
+            <option value="shared" <?= ($tenant['room_type_preference'] ?? '') === 'shared' ? 'selected' : '' ?>>Shared Room</option>
+          </select>
+          <div class="form-help">Helps the landlord assign you efficiently if you are on the waiting list.</div>
+        </div>
+        <div class="form-group">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 8px 0;">
+            <input type="checkbox" name="air_conditioned_preference" id="aircon" value="1" 
+                   <?= !empty($tenant['air_conditioned_preference']) ? 'checked' : '' ?>
+                   style="width: 18px; h-18px; cursor: pointer;">
+            <label for="aircon" style="margin: 0; cursor: pointer; font-weight: 600;">I prefer an air-conditioned room</label>
+          </div>
+          <div class="form-help">This is a preference and depends on room availability.</div>
+        </div>
+      <?php endif; ?>
     </div>
   </div>
 
@@ -110,14 +128,14 @@ foreach ($alerts as $f):
     <h3><i class="fa-solid fa-key"></i> Password</h3>
   </div>
   <div class="card-body">
-    <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0;">
-      <div>
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 4px 0; gap: 12px;">
+      <div style="flex: 1; min-width: 200px;">
         <strong style="color: var(--color-text-primary);">Account Password</strong>
         <p style="font-size: 0.85rem; color: var(--color-text-secondary); margin: 4px 0 0;">
           Update your login password. Your current password is required.
         </p>
       </div>
-      <a href="<?= Router::url('tenant/changePassword') ?>" class="btn btn-secondary btn-sm">
+      <a href="<?= Router::url('tenant/changePassword') ?>" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">
         <i class="fa-solid fa-lock"></i> Change
       </a>
     </div>
@@ -130,8 +148,8 @@ foreach ($alerts as $f):
     <h3><i class="fa-solid fa-shield-halved"></i> Two-Factor Authentication</h3>
   </div>
   <div class="card-body">
-    <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0;">
-      <div>
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 4px 0; gap: 12px;">
+      <div style="flex: 1; min-width: 200px;">
         <strong style="color: var(--color-text-primary);">Security Layer</strong>
         <p style="font-size: 0.85rem; color: var(--color-text-secondary); margin: 4px 0 0;">
           <?php if (!empty($user['totp_enabled'])): ?>
@@ -147,7 +165,7 @@ foreach ($alerts as $f):
           <?php endif; ?>
         </p>
       </div>
-      <a href="<?= Router::url('auth/setup2FA') ?>" class="btn btn-secondary btn-sm">
+      <a href="<?= Router::url('auth/setup2FA') ?>" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">
         <i class="fa-solid fa-gear"></i> Manage
       </a>
     </div>

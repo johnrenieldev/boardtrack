@@ -59,7 +59,7 @@ $filters    = $filters    ?? [];
 
 <!-- Filters -->
 <div class="card mb-4 p-4">
-  <form method="GET" action="<?= Router::url('landlord/payments') ?>" class="filter-bar" style="margin-bottom:0;">
+  <form method="GET" action="index.php" class="filter-bar" style="margin-bottom:0;">
     <input type="hidden" name="url" value="landlord/payments">
     <select name="status" class="form-select">
       <option value="">All Statuses</option>
@@ -81,7 +81,7 @@ $filters    = $filters    ?? [];
       <p class="text-gray-500">No payments match the current filters.</p>
     </div>
   <?php else: ?>
-    <div class="overflow-x-auto">
+    <div class="table-wrap">
       <table class="bt-table w-full">
         <thead>
           <tr>

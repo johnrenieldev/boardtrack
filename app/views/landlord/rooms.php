@@ -21,25 +21,6 @@ $statistics = $statistics ?? [];
   </div>
 </div>
 
-<!-- Filters -->
-<div class="card" style="margin-bottom:16px;padding:14px 20px;">
-  <form method="GET" action="<?= Router::url('landlord/rooms') ?>" class="filter-bar" style="margin-bottom:0;">
-    <select name="air_conditioned" class="form-select">
-      <option value="" <?= empty($filters['air_conditioned'] ?? '') ? 'selected' : '' ?>>All AC Types</option>
-      <option value="1" <?= (string)($filters['air_conditioned'] ?? '') === '1' ? 'selected' : '' ?>>Air-conditioned only</option>
-      <option value="0" <?= (string)($filters['air_conditioned'] ?? '') === '0' ? 'selected' : '' ?>>Non-air-conditioned only</option>
-    </select>
-    <select name="allowed_gender" class="form-select">
-      <option value="" <?= empty($filters['allowed_gender'] ?? '') ? 'selected' : '' ?>>All Genders</option>
-      <option value="male" <?= ($filters['allowed_gender'] ?? '') === 'male' ? 'selected' : '' ?>>Male only</option>
-      <option value="female" <?= ($filters['allowed_gender'] ?? '') === 'female' ? 'selected' : '' ?>>Female only</option>
-      <option value="any" <?= ($filters['allowed_gender'] ?? '') === 'any' ? 'selected' : '' ?>>Any/Mixed</option>
-    </select>
-    <button type="submit" class="btn btn-outline btn-sm">Filter</button>
-    <a href="<?= Router::url('landlord/rooms') ?>" class="btn btn-ghost btn-sm">Clear</a>
-  </form>
-</div>
-
 <!-- Stats -->
 <div class="stats-grid grid-5-cols">
   <div class="stat-card">
@@ -86,6 +67,27 @@ $statistics = $statistics ?? [];
     <div class="stat-value"><?= $statistics['female_only'] ?? 0 ?></div>
     <div class="stat-footer">Assigned <span>rooms</span></div>
   </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4 p-4">
+  <form method="GET" action="index.php" class="filter-bar" style="margin-bottom:0;">
+    <input type="hidden" name="url" value="landlord/rooms">
+    <select name="air_conditioned" class="form-select">
+      <option value="" <?= empty($filters['air_conditioned'] ?? '') ? 'selected' : '' ?>>All AC Types</option>
+      <option value="1" <?= (string)($filters['air_conditioned'] ?? '') === '1' ? 'selected' : '' ?>>Air-conditioned only</option>
+      <option value="0" <?= (string)($filters['air_conditioned'] ?? '') === '0' ? 'selected' : '' ?>>Non-air-conditioned only</option>
+    </select>
+    <select name="allowed_gender" class="form-select">
+      <option value="" <?= empty($filters['allowed_gender'] ?? '') ? 'selected' : '' ?>>All Genders</option>
+      <option value="male" <?= ($filters['allowed_gender'] ?? '') === 'male' ? 'selected' : '' ?>>Male only</option>
+      <option value="female" <?= ($filters['allowed_gender'] ?? '') === 'female' ? 'selected' : '' ?>>Female only</option>
+      <option value="prefer_not_to_say" <?= ($filters['allowed_gender'] ?? '') === 'prefer_not_to_say' ? 'selected' : '' ?>>Prefer not to say only</option>
+      <option value="any" <?= ($filters['allowed_gender'] ?? '') === 'any' ? 'selected' : '' ?>>Any/Mixed</option>
+    </select>
+    <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+    <a href="<?= Router::url('landlord/rooms') ?>" class="btn btn-secondary btn-sm">Clear</a>
+  </form>
 </div>
 
 <!-- Rooms Table -->
@@ -142,6 +144,7 @@ $statistics = $statistics ?? [];
                     <i class="fa-solid <?= match($room['allowed_gender'] ?? 'any') {
                       'male'   => 'fa-mars',
                       'female' => 'fa-venus',
+                      'prefer_not_to_say' => 'fa-genderless',
                       'any'    => 'fa-venus-mars',
                       default  => 'fa-venus-mars'
                     } ?> text-[10px]"></i>
@@ -196,7 +199,7 @@ $statistics = $statistics ?? [];
                         data-confirm="Are you sure you want to delete Room <?= htmlspecialchars($room['room_number']) ?>?"
                         data-action="Delete room" data-color="#dc2626" data-confirm-text="Yes, delete">
                     <input type="hidden" name="room_id" value="<?= $room['id'] ?>">
-                    <button type="submit" class="btn btn-danger btn-sm btn-icon" title="Delete">
+                    <button type="submit" class="btn btn-danger btn-icon" title="Delete" style="padding: 4px 6px;">
                       <i class="fa-solid fa-trash-can text-xs"></i>
                     </button>
                   </form>
@@ -393,6 +396,49 @@ function showInfoModal(roomNumber, description) {
   document.getElementById('infoModalBody').textContent = description;
   openModal('infoModal');
 }
+
+// VALIDATION: Room type vs max occupants
+function validateRoomTypeOccupants(roomTypeSelect, maxOccupantsInput) {
+  var roomType = roomTypeSelect.value;
+  var maxOccupants = parseInt(maxOccupantsInput.value) || 0;
+  
+  if (roomType === 'single' && maxOccupants !== 1) {
+    maxOccupantsInput.value = 1;
+    alert('Single rooms must have exactly 1 max occupant. Value has been corrected.');
+  } else if (roomType === 'shared' && maxOccupants < 2) {
+    maxOccupantsInput.value = 2;
+    alert('Shared rooms must have at least 2 max occupants. Value has been corrected.');
+  }
+}
+
+// Add event listeners for add room form
+document.addEventListener('DOMContentLoaded', function() {
+  var addRoomType = document.querySelector('#addRoomModal select[name="room_type"]');
+  var addMaxOccupants = document.querySelector('#addRoomModal input[name="max_occupants"]');
+  
+  if (addRoomType && addMaxOccupants) {
+    addRoomType.addEventListener('change', function() {
+      validateRoomTypeOccupants(addRoomType, addMaxOccupants);
+    });
+    addMaxOccupants.addEventListener('blur', function() {
+      validateRoomTypeOccupants(addRoomType, addMaxOccupants);
+    });
+  }
+  
+  // Add event listeners for edit room form
+  var editRoomType = document.getElementById('edit_room_type');
+  var editMaxOccupants = document.getElementById('edit_max_occupants');
+  
+  if (editRoomType && editMaxOccupants) {
+    editRoomType.addEventListener('change', function() {
+      validateRoomTypeOccupants(editRoomType, editMaxOccupants);
+    });
+    editMaxOccupants.addEventListener('blur', function() {
+      validateRoomTypeOccupants(editRoomType, editMaxOccupants);
+    });
+  }
+});
+
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     document.querySelectorAll('.modal-overlay').forEach(function(m) { m.style.display = 'none'; });
@@ -406,3 +452,153 @@ document.addEventListener('click', function(e) {
   }
 });
 </script>
+
+<style>
+/* Optimize rooms table - eliminate horizontal scroll */
+.bt-table th,
+.bt-table td {
+  padding: 8px 10px !important;
+  vertical-align: middle !important;
+  font-size: 0.75rem !important;
+}
+
+.bt-table th {
+  font-size: 0.7rem !important;
+  font-weight: 600 !important;
+  text-align: center !important;
+}
+
+/* Keep Room No. left-aligned */
+.bt-table th:first-child {
+  text-align: left !important;
+}
+
+/* Column widths - reduced to fit without scroll */
+.bt-table th:nth-child(1),
+.bt-table td:nth-child(1) {
+  width: 8%;
+  min-width: 60px;
+  text-align: left !important;
+}
+
+.bt-table th:nth-child(2),
+.bt-table td:nth-child(2) {
+  width: 8%;
+  min-width: 60px;
+}
+
+.bt-table th:nth-child(3),
+.bt-table td:nth-child(3) {
+  width: 9%;
+  min-width: 70px;
+}
+
+.bt-table th:nth-child(4),
+.bt-table td:nth-child(4) {
+  width: 13%;
+  min-width: 100px;
+}
+
+.bt-table th:nth-child(5),
+.bt-table td:nth-child(5) {
+  width: 9%;
+  min-width: 70px;
+}
+
+.bt-table th:nth-child(6),
+.bt-table td:nth-child(6) {
+  width: 15%;
+  min-width: 110px;
+}
+
+.bt-table th:nth-child(7),
+.bt-table td:nth-child(7) {
+  width: 13%;
+  min-width: 95px;
+}
+
+.bt-table th:nth-child(8),
+.bt-table td:nth-child(8) {
+  width: 11%;
+  min-width: 85px;
+}
+
+.bt-table th:nth-child(9),
+.bt-table td:nth-child(9) {
+  width: 14%;
+  min-width: 100px;
+}
+
+/* Center all data cells except Room No. */
+.bt-table td:not(:first-child) {
+  text-align: center !important;
+}
+
+/* Make badges smaller */
+.bt-table .badge {
+  font-size: 0.65rem !important;
+  padding: 3px 8px !important;
+  white-space: nowrap !important;
+}
+
+.bt-table .badge i {
+  font-size: 0.6rem !important;
+}
+
+/* Make room number bold and smaller */
+.bt-table td:first-child span {
+  font-weight: 700 !important;
+  font-size: 0.85rem !important;
+}
+
+/* Smaller occupancy bar */
+.bt-table td[data-label="Occupancy"] > div > div {
+  gap: 8px !important;
+  max-width: 100px !important;
+}
+
+.bt-table td[data-label="Occupancy"] span {
+  font-size: 0.7rem !important;
+}
+
+.bt-table td[data-label="Occupancy"] > div > div > div:first-child {
+  min-width: 50px !important;
+  height: 5px !important;
+}
+
+.bt-table td[data-label="Occupancy"] > div > div > div > div {
+  height: 5px !important;
+}
+
+/* Smaller rent amount */
+.bt-table td[data-col="amount"] > div {
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+}
+
+/* Smaller action buttons */
+.bt-table td[data-col="actions"] .btn {
+  padding: 4px 6px !important;
+}
+
+.bt-table td[data-col="actions"] .btn i {
+  font-size: 0.65rem !important;
+}
+
+.bt-table td[data-col="actions"] > div {
+  gap: 3px !important;
+}
+
+/* Force center alignment with flex-center */
+.bt-table td .flex-center {
+  width: 100%;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+/* Override any conflicting styles */
+.bt-table td .flex-center > * {
+  margin: 0 auto;
+}
+</style>

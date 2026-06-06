@@ -1,6 +1,5 @@
-/vendor/
-/logs/
-.vscode/
-.env
-*.log
-config/mail.php
+as u can see in this this app have a lot of pages, then also a fetaure that the student can be search using the name and id
+and the files were to many, as long as can be minimize and still execute the target features and also give me a files explanation about the app, example a specfifc code and its features function in the app, but dont put any comments in the code okay
+dont ruin those error handling and get rid the plus for adding a student or what crearive way u do to implement for it but it must be a onescreen
+
+and when searching  example your id is 1 then when searching the only will show is your data beacuse the user only search 1 and it will not show the 12 13 14 15 or other humber that has 1 wihtin and itt will all aplly to all numbers not onyl in 1 i hope u aundtsrand

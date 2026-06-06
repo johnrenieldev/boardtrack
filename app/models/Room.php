@@ -30,12 +30,16 @@ class Room extends Model
         $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
 
         $sql = "SELECT r.*,
-                       COUNT(t.id) AS actual_occupants
+                       COALESCE(occ.actual_occupants, 0) AS actual_occupants
                 FROM {$this->table} r
-                LEFT JOIN tenants t ON t.room_id = r.id
-                          AND EXISTS (SELECT 1 FROM users u WHERE u.id = t.user_id AND u.status = 'approved')
+                LEFT JOIN (
+                    SELECT t.room_id, COUNT(*) AS actual_occupants
+                    FROM tenants t
+                    JOIN users u ON u.id = t.user_id
+                    WHERE u.status = 'approved'
+                    GROUP BY t.room_id
+                ) occ ON occ.room_id = r.id
                 {$whereSql}
-                GROUP BY r.id
                 ORDER BY r.floor ASC, r.room_number ASC";
 
         $stmt = $this->db->prepare($sql);
@@ -47,7 +51,7 @@ class Room extends Model
         return $stmt->fetchAll();
     }
 
-    public function getAvailable(string $gender = null): array
+    public function getAvailable(?string $gender = null, ?bool $airConditioned = null): array
     {
         $where = ["r.status = 'available'"];
         $params = [];
@@ -57,14 +61,26 @@ class Room extends Model
             $params[':gender'] = $gender;
         }
 
+        // Filter by air conditioning preference if specified
+        if ($airConditioned !== null && $this->hasColumn('air_conditioned')) {
+            $where[] = "r.air_conditioned = :ac";
+            $params[':ac'] = $airConditioned ? 1 : 0;
+        }
+
         $whereSql = implode(' AND ', $where);
-        
+
         $sql = "SELECT r.*,
-                       COUNT(t.id) AS actual_occupants
+                       COALESCE(occ.actual_occupants, 0) AS actual_occupants
                 FROM {$this->table} r
-                LEFT JOIN tenants t ON t.room_id = r.id
-                GROUP BY r.id
-                HAVING {$whereSql} AND (r.max_occupants - COUNT(t.id)) > 0
+                LEFT JOIN (
+                    SELECT t.room_id, COUNT(*) AS actual_occupants
+                    FROM tenants t
+                    JOIN users u ON u.id = t.user_id
+                    WHERE u.status = 'approved'
+                    GROUP BY t.room_id
+                ) occ ON occ.room_id = r.id
+                WHERE {$whereSql}
+                  AND (r.max_occupants - COALESCE(occ.actual_occupants, 0)) > 0
                 ORDER BY r.floor ASC, r.room_number ASC";
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
@@ -75,15 +91,22 @@ class Room extends Model
     {
         $sql  = "SELECT
                     COUNT(*) AS total_rooms,
-                    SUM(status='available') AS available,
-                    SUM(status='occupied')  AS occupied,
-                    SUM(status='maintenance') AS maintenance,
-                    SUM(allowed_gender='male') AS male_only,
-                    SUM(allowed_gender='female') AS female_only,
-                    SUM(allowed_gender='any') AS mixed_any,
-                    AVG(monthly_rent) AS avg_rent,
-                    SUM(status='occupied') AS total_occupied
-                 FROM {$this->table}";
+                    SUM(CASE WHEN r.status <> 'maintenance' AND COALESCE(occ.actual_occupants, 0) = 0 THEN 1 ELSE 0 END) AS available,
+                    SUM(CASE WHEN r.status <> 'maintenance' AND COALESCE(occ.actual_occupants, 0) > 0 THEN 1 ELSE 0 END) AS occupied,
+                    SUM(r.status='maintenance') AS maintenance,
+                    SUM(r.allowed_gender='male') AS male_only,
+                    SUM(r.allowed_gender='female') AS female_only,
+                    SUM(r.allowed_gender='any') AS mixed_any,
+                    AVG(r.monthly_rent) AS avg_rent,
+                    SUM(COALESCE(occ.actual_occupants, 0)) AS total_occupied
+                 FROM {$this->table} r
+                 LEFT JOIN (
+                    SELECT t.room_id, COUNT(*) AS actual_occupants
+                    FROM tenants t
+                    JOIN users u ON u.id = t.user_id
+                    WHERE u.status = 'approved'
+                    GROUP BY t.room_id
+                 ) occ ON occ.room_id = r.id";
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         return $stmt->fetch() ?: [];
@@ -109,15 +132,20 @@ class Room extends Model
 
     public function updateOccupancy(int $roomId): void
     {
-        $sql  = "SELECT r.max_occupants, COUNT(t.id) AS cnt
+        $sql  = "SELECT r.max_occupants, r.status, COUNT(u.id) AS cnt
                  FROM {$this->table} r
                  LEFT JOIN tenants t ON t.room_id = r.id
+                 LEFT JOIN users u ON u.id = t.user_id AND u.status = 'approved'
                  WHERE r.id = :id GROUP BY r.id";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([':id' => $roomId]);
         $row  = $stmt->fetch();
         if (!$row) return;
-        $status = ($row['cnt'] >= $row['max_occupants']) ? 'occupied' : 'available';
+        if (($row['status'] ?? '') === 'maintenance') {
+            return;
+        }
+
+        $status = ((int)$row['cnt'] >= (int)$row['max_occupants']) ? 'occupied' : 'available';
         $this->update(['status' => $status], ['id' => $roomId]);
     }
 }

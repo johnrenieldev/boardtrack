@@ -38,6 +38,20 @@ class NotificationController extends Controller
     }
 
     /**
+     * GET notification/unreadCount
+     * Returns JSON with unread notification count and has_unread flag.
+     * Used for AJAX polling to sync red dot on non-notification pages.
+     */
+    public function unreadCount(): void
+    {
+        header('Content-Type: application/json');
+        $userId = (int) $_SESSION['user_id'];
+        $count = $this->notificationModel->getUnreadCount($userId);
+        echo json_encode(['count' => $count, 'has_unread' => $count > 0]);
+        exit;
+    }
+
+    /**
      * POST notification/markRead/{id}
      * Fallback mark-read endpoint (role-specific controllers are preferred).
      * Validates ownership via WHERE user_id = :uid in the model.

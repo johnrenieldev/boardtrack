@@ -57,6 +57,24 @@ $resolvedCount     = count(array_filter($complaints, fn($c) => $c['status'] === 
   </div>
 </div>
 
+<!-- Filter Bar -->
+<div class="card mb-4 p-4">
+  <div class="filter-bar" style="margin-bottom:0;">
+    <select class="form-select" id="statusFilter">
+      <option value="all">All Statuses</option>
+      <option value="pending">Pending</option>
+      <option value="in_progress">In Progress</option>
+      <option value="resolved">Resolved</option>
+    </select>
+    <button type="button" class="btn btn-primary btn-sm" onclick="applyFilter()">
+      Filter
+    </button>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="clearFilter()">
+      <i class="fa-solid fa-times"></i> Clear
+    </button>
+  </div>
+</div>
+
 <!-- Complaints List -->
 <div class="card">
   <?php if (empty($complaints)): ?>
@@ -98,7 +116,7 @@ $resolvedCount     = count(array_filter($complaints, fn($c) => $c['status'] === 
           ];
           foreach ($complaints as $idx => $complaint):
           ?>
-          <tr>
+          <tr data-status="<?= htmlspecialchars($complaint['status']) ?>">
             <td data-label="Title">
               <div class="td-name">
                 <?= htmlspecialchars($complaint['title']) ?>
@@ -346,10 +364,19 @@ function openEditModal(idx) {
 }
 
 function confirmDelete(id, title) {
-  if (confirm('Delete complaint "' + title + '"?\nThis action cannot be undone.')) {
-    document.getElementById('deleteComplaintId').value = id;
-    document.getElementById('deleteComplaintForm').submit();
-  }
+  btConfirm({
+    title: 'Delete Complaint',
+    message: `Delete complaint "${title}"?\nThis action cannot be undone.`,
+    confirmText: 'Yes, Delete',
+    cancelText: 'Cancel',
+    type: 'danger',
+    icon: 'fa-trash-can'
+  }).then(confirmed => {
+    if (confirmed) {
+      document.getElementById('deleteComplaintId').value = id;
+      document.getElementById('deleteComplaintForm').submit();
+    }
+  });
 }
 
 // Anonymous toggle — create form
@@ -376,4 +403,253 @@ document.addEventListener('keydown', function(e) {
     document.body.style.overflow = '';
   }
 });
+
+function applyFilter() {
+  var status = document.getElementById('statusFilter').value;
+  filterComplaints(status);
+}
+
+function clearFilter() {
+  document.getElementById('statusFilter').value = 'all';
+  filterComplaints('all');
+}
+
+function filterComplaints(status) {
+  var rows = document.querySelectorAll('.bt-table tbody tr');
+  var visibleCount = 0;
+  rows.forEach(function(row) {
+    if (status === 'all' || row.getAttribute('data-status') === status) {
+      row.style.display = '';
+      visibleCount++;
+    } else {
+      row.style.display = 'none';
+    }
+  });
+  
+  // Show empty state if no results
+  var emptyState = document.getElementById('filterEmptyState');
+  if (visibleCount === 0 && !emptyState) {
+    var tbody = document.querySelector('.bt-table tbody');
+    if (tbody) {
+      var emptyRow = document.createElement('tr');
+      emptyRow.id = 'filterEmptyState';
+      emptyRow.innerHTML = '<td colspan="5" style="text-align:center;padding:40px;color:var(--gray-500);"><i class="fa-solid fa-filter" style="font-size:2rem;margin-bottom:12px;display:block;opacity:0.3;"></i>No complaints found with this filter</td>';
+      tbody.appendChild(emptyRow);
+    }
+  } else if (visibleCount > 0 && emptyState) {
+    emptyState.remove();
+  }
+}
 </script>
+
+<style>
+/* Fix table spacing and alignment */
+.bt-table th,
+.bt-table td {
+  padding: 12px 16px !important;
+  vertical-align: middle !important;
+}
+
+/* Column widths for better alignment and equal spacing */
+.bt-table th:nth-child(1),
+.bt-table td:nth-child(1) {
+  width: 30%;
+  min-width: 180px;
+}
+
+.bt-table th:nth-child(2),
+.bt-table td:nth-child(2) {
+  width: 18%;
+  min-width: 130px;
+  text-align: center;
+}
+
+.bt-table th:nth-child(3),
+.bt-table td:nth-child(3) {
+  width: 16%;
+  min-width: 120px;
+  text-align: center;
+}
+
+.bt-table th:nth-child(4),
+.bt-table td:nth-child(4) {
+  width: 18%;
+  min-width: 130px;
+  text-align: center;
+}
+
+.bt-table th:nth-child(5),
+.bt-table td:nth-child(5) {
+  width: 18%;
+  min-width: 130px;
+  text-align: center;
+}
+
+/* Center column headers */
+.bt-table th[data-col="category"],
+.bt-table th[data-col="status"],
+.bt-table th[data-col="actions"] {
+  text-align: center;
+}
+
+/* Center badges in their columns */
+.bt-table td[data-col="category"],
+.bt-table td[data-col="status"] {
+  text-align: center;
+}
+
+/* Center action buttons */
+.bt-table td[data-col="actions"] > div {
+  justify-content: center !important;
+}
+
+/* Make badges more compact */
+.bt-table .badge {
+  font-size: 0.75rem;
+  padding: 4px 10px;
+}
+
+/* Status badge colors */
+.badge-pending {
+  background: var(--warning-light);
+  color: var(--warning);
+}
+
+.badge-progress {
+  background: var(--brand-light);
+  color: var(--brand);
+}
+
+.badge-resolved {
+  background: var(--success-light);
+  color: var(--success);
+}
+
+/* Mobile card fixes */
+@media (max-width: 767px) {
+  /* Create a scrollable container for cards on mobile */
+  .card {
+    max-height: calc(100vh - 280px) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Force table to be full width and prevent horizontal scroll */
+  .table-wrap {
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  .bt-table {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    table-layout: auto !important;
+  }
+  
+  .bt-table tbody tr {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-bottom: 16px !important;
+  }
+  
+  /* Add padding to last card so it's visible in scroll container */
+  .bt-table tbody tr:last-child {
+    margin-bottom: 20px !important;
+  }
+  
+  /* Remove all column width constraints on mobile */
+  .bt-table th,
+  .bt-table td {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  
+  /* Fix mobile card layout - reduce label width and gap */
+  .bt-table td[data-label]:not(:first-child)::before {
+    width: 85px !important;
+    min-width: 85px !important;
+    flex-shrink: 0 !important;
+    padding-right: 0 !important;
+  }
+  
+  .bt-table td[data-label]:not(:first-child) {
+    display: flex !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    text-align: left !important;
+    gap: 12px !important;
+  }
+  
+  /* Override global word-break that causes vertical text */
+  .bt-table,
+  .bt-table th,
+  .bt-table td,
+  .bt-table th *,
+  .bt-table td * {
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+    word-wrap: normal !important;
+    white-space: normal !important;
+  }
+  
+  /* Allow wrapping only for long titles */
+  .bt-table td:first-child .td-name {
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+  }
+  
+  /* Ensure proper text rendering */
+  .bt-table td[data-label]::before {
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+  }
+  
+  /* Make mobile cards more compact */
+  .bt-table td {
+    padding: 10px 14px !important;
+  }
+  
+  .bt-table td:first-child {
+    padding: 14px 16px !important;
+  }
+  
+  /* Center action buttons on mobile */
+  .bt-table td[data-col="actions"] {
+    justify-content: center !important;
+    text-align: center !important;
+  }
+  
+  .bt-table td[data-col="actions"]::before {
+    display: none !important;
+  }
+  
+  .bt-table td[data-col="actions"] > div {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+  
+  /* Style the scrollbar for better UX */
+  .card::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .card::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+  }
+  
+  .card::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+  }
+  
+  .card::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+}
+</style>

@@ -4,10 +4,10 @@
  * app/views/tenant/notifications.php
  *
  * Sections:
- *   "New"   → unread notifications  (blue cards, data-notif-read="0")
- *   "Today" → read notifications    (white cards, data-notif-read="1")
+ *   "New"  → unread notifications  (blue cards, data-notif-read="0")
+ *   "Seen" → read notifications    (white cards, data-notif-read="1")
  *
- * notifications.js moves cards New → Today on click and syncs the red dot.
+ * notifications.js moves cards New → Seen on click and syncs the red dot.
  * No "Mark All as Read". No numeric counters.
  */
 
@@ -28,6 +28,7 @@ function renderNotifCard(array $notif, string $deleteUrlBase, bool $isRead): str
         'room'         => 'fa-door-open',
         'announcement' => 'fa-bullhorn',
         'billing'      => 'fa-file-invoice',
+        'review'       => 'fa-star',
         default        => 'fa-bell',
     };
 
@@ -102,7 +103,12 @@ $hasAny = !empty($unreadNotifs) || !empty($readNotifs);
 
       <?php if (!empty($unreadNotifs)): ?>
         <div class="notif-group" id="notif-section-new">
-          <div class="notif-group-header">New</div>
+          <div class="notif-group-header">
+            New
+            <?php if (count($unreadNotifs) > 0): ?>
+              <span class="notif-count-badge"><?= count($unreadNotifs) ?></span>
+            <?php endif; ?>
+          </div>
           <?php foreach ($unreadNotifs as $notif): ?>
             <?= renderNotifCard($notif, $deleteUrlBase, false) ?>
           <?php endforeach; ?>
@@ -110,8 +116,8 @@ $hasAny = !empty($unreadNotifs) || !empty($readNotifs);
       <?php endif; ?>
 
       <?php if (!empty($readNotifs)): ?>
-        <div class="notif-group" id="notif-section-today">
-          <div class="notif-group-header">Today</div>
+        <div class="notif-group" id="notif-section-seen">
+          <div class="notif-group-header">Seen</div>
           <?php foreach ($readNotifs as $notif): ?>
             <?= renderNotifCard($notif, $deleteUrlBase, true) ?>
           <?php endforeach; ?>
@@ -250,5 +256,22 @@ $hasAny = !empty($unreadNotifs) || !empty($readNotifs);
   letter-spacing: 1px;
   background: #f8fafc;
   border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.notif-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 20px;
+  padding: 0 8px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
 }
 </style>

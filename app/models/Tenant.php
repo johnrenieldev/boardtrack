@@ -32,10 +32,22 @@ class Tenant extends Model
     {
         $sql = "SELECT t.*,
                        u.name, u.email, u.status as user_status, u.role,
-                       r.room_number, r.room_type, r.floor, r.monthly_rent
+                       r.room_number, r.room_type, r.floor, r.monthly_rent,
+                       COALESCE(qa.answered_questions, 0) AS answered_questions,
+                       COALESCE(aq.active_questions, 0) AS active_questions
                 FROM {$this->table} t
                 JOIN users u ON t.user_id = u.id
                 LEFT JOIN rooms r ON t.room_id = r.id
+                LEFT JOIN (
+                    SELECT tenant_id, COUNT(DISTINCT question_id) AS answered_questions
+                    FROM personality_answers
+                    GROUP BY tenant_id
+                ) qa ON qa.tenant_id = t.id
+                CROSS JOIN (
+                    SELECT COUNT(*) AS active_questions
+                    FROM personality_questions
+                    WHERE is_active = 1
+                ) aq
                 WHERE t.user_id = :user_id
                 LIMIT 1";
         
@@ -52,6 +64,12 @@ class Tenant extends Model
     {
         $where = ['u.role = :role'];
         $params = [':role' => 'tenant'];
+        $readyForReviewSql = "u.status = 'pending'
+            AND t.personality_completed = 1
+            AND t.id_document_path IS NOT NULL
+            AND t.id_document_path != ''
+            AND COALESCE(aq.active_questions, 0) > 0
+            AND COALESCE(qa.answered_questions, 0) >= COALESCE(aq.active_questions, 0)";
 
         if (!empty($filters['status'])) {
             if ($filters['status'] === 'active') {
@@ -61,7 +79,7 @@ class Tenant extends Model
             } elseif ($filters['status'] === 'approved') {
                 $where[] = "u.status = 'approved'";
             } elseif ($filters['status'] === 'ready_for_review') {
-                $where[] = "u.status = 'pending' AND t.personality_completed = 1 AND t.id_document_path IS NOT NULL AND t.id_document_path != ''";
+                $where[] = $readyForReviewSql;
             } else {
                 $where[] = 'u.status = :status';
                 $params[':status'] = $filters['status'];
@@ -103,12 +121,30 @@ class Tenant extends Model
         $sql = "SELECT t.*,
                        u.name, u.email, u.status as user_status, u.created_at as registered_at,
                        r.room_number, r.room_type as assigned_room_type,
-                       tcc.compatibility_score, tcc.compatibility_status
+                       tcc.compatibility_score, tcc.compatibility_status,
+                       COALESCE(qa.answered_questions, 0) AS answered_questions,
+                       COALESCE(aq.active_questions, 0) AS active_questions
                 FROM {$this->table} t
                 JOIN users u ON t.user_id = u.id
                 LEFT JOIN rooms r ON t.room_id = r.id
                 LEFT JOIN tenant_compatibility_cache tcc ON t.id = tcc.tenant_id 
-                     AND (tcc.room_id = t.room_id OR (t.room_id IS NULL AND tcc.compatibility_score = (SELECT MAX(compatibility_score) FROM tenant_compatibility_cache WHERE tenant_id = t.id)))
+                     AND tcc.compatibility_status NOT IN ('Incomplete Profile', 'Incomplete Data', 'Incomplete Roommate Data')
+                     AND (tcc.room_id = t.room_id OR (t.room_id IS NULL AND tcc.compatibility_score = (
+                         SELECT MAX(compatibility_score)
+                         FROM tenant_compatibility_cache
+                         WHERE tenant_id = t.id
+                           AND compatibility_status NOT IN ('Incomplete Profile', 'Incomplete Data', 'Incomplete Roommate Data')
+                     )))
+                LEFT JOIN (
+                    SELECT tenant_id, COUNT(DISTINCT question_id) AS answered_questions
+                    FROM personality_answers
+                    GROUP BY tenant_id
+                ) qa ON qa.tenant_id = t.id
+                CROSS JOIN (
+                    SELECT COUNT(*) AS active_questions
+                    FROM personality_questions
+                    WHERE is_active = 1
+                ) aq
                 WHERE " . implode(' AND ', $where) . "
                 GROUP BY t.id
                 ORDER BY u.created_at DESC";
@@ -157,7 +193,7 @@ class Tenant extends Model
         $sql = "SELECT t.*, u.name, u.email, u.status as user_status
                 FROM {$this->table} t
                 JOIN users u ON t.user_id = u.id
-                WHERE t.room_id = :room_id
+                WHERE t.room_id = :room_id AND u.status = 'approved'
                 ORDER BY t.move_in_date ASC";
         
         $stmt = $this->db->prepare($sql);
@@ -283,6 +319,31 @@ class Tenant extends Model
     }
 
     /**
+     * Check the real answer rows instead of trusting the legacy completion flag.
+     */
+    public function hasCompletePersonalityAnswers(int $tenantId): bool
+    {
+        $sql = "SELECT COUNT(DISTINCT pa.question_id) AS answered_questions,
+                       (SELECT COUNT(*) FROM personality_questions WHERE is_active = 1) AS active_questions
+                FROM personality_answers pa
+                JOIN personality_questions pq ON pq.id = pa.question_id AND pq.is_active = 1
+                WHERE pa.tenant_id = :tenant_id";
+
+        try {
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([':tenant_id' => $tenantId]);
+            $row = $stmt->fetch() ?: [];
+        } catch (PDOException $e) {
+            error_log('Personality completion check failed: ' . $e->getMessage());
+            return false;
+        }
+
+        $active = (int)($row['active_questions'] ?? 0);
+        $answered = (int)($row['answered_questions'] ?? 0);
+        return $active > 0 && $answered >= $active;
+    }
+
+    /**
      * Get tenant onboarding status (derived from user status + personality + room)
      */
     public function getOnboardingStatus(int $userId): string
@@ -290,7 +351,7 @@ class Tenant extends Model
         $tenant = $this->findByUserId($userId);
         if (!$tenant) return 'registered';
         $status = 'registered';
-        if ($tenant['personality_completed']) $status = 'quiz_done';
+        if (!empty($tenant['personality_completed']) && $this->hasCompletePersonalityAnswers((int)$tenant['id'])) $status = 'quiz_done';
         if ($status === 'quiz_done' && $tenant['user_status'] === 'approved' && !$tenant['room_id']) $status = 'approved';
         if ($tenant['room_id']) $status = 'complete';
         return $status;
@@ -336,4 +397,3 @@ class Tenant extends Model
         return $row ?: null;
     }
 }
-

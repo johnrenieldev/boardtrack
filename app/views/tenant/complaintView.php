@@ -9,7 +9,7 @@
       <i class="fa-solid fa-arrow-left"></i> Back
     </a>
     <div>
-      <h1 class="dash-page-title">Complaint Details</h1>
+      <h1 class="dash-page-title" style="font-weight: 900;">Complaint Details</h1>
       <p class="dash-page-sub">Track the status of your reported issue.</p>
     </div>
   </div>
@@ -61,27 +61,54 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
 
         <?php if ($complaint['landlord_response']): ?>
-          <div class="response-section p-6 bg-blue-50 rounded-xl border border-blue-100 relative overflow-hidden mb-6">
-            <div class="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-              <i class="fa-solid fa-reply text-6xl text-blue-900"></i>
+          <div class="response-section p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl border-2 border-blue-200 relative overflow-hidden mb-6 shadow-lg">
+            <div class="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
+              <i class="fa-solid fa-shield-halved text-8xl text-blue-900"></i>
             </div>
-            <div class="flex items-center gap-2 mb-3">
-              <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs">
-                <i class="fa-solid fa-user-tie"></i>
+            <div class="relative">
+              <div class="flex items-center gap-3 mb-4">
+                <div class="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center text-lg shadow-md">
+                  <i class="fa-solid fa-user-tie"></i>
+                </div>
+                <div>
+                  <span class="font-black text-blue-900 text-lg">Landlord's Response</span>
+                  <?php if ($complaint['resolved_at']): ?>
+                    <div class="text-xs text-blue-600 font-bold">Resolved on <?= date('F j, Y, g:i a', strtotime($complaint['resolved_at'])) ?></div>
+                  <?php endif; ?>
+                </div>
               </div>
-              <span class="font-bold text-blue-900">Landlord's Response</span>
-            </div>
-            <div class="text-blue-900 leading-relaxed">
-              <?= nl2br(htmlspecialchars($complaint['landlord_response'])) ?>
-            </div>
-            <?php if ($complaint['resolved_at']): ?>
-              <div class="mt-4 text-xs text-blue-400 font-medium border-t border-blue-100 pt-3">
-                Resolved on <?= date('F j, Y, g:i a', strtotime($complaint['resolved_at'])) ?>
+              <div class="bg-white/70 backdrop-blur-sm rounded-xl p-5 text-blue-900 leading-relaxed font-medium border border-blue-200/50">
+                <?= nl2br(htmlspecialchars($complaint['landlord_response'])) ?>
               </div>
-            <?php endif; ?>
+              <div class="mt-4 flex items-center gap-2 text-xs text-blue-600 font-bold">
+                <i class="fa-solid fa-circle-check"></i>
+                <span>Status: <?= ucfirst(str_replace('_', ' ', $complaint['status'])) ?></span>
+              </div>
+            </div>
           </div>
 
-          <?php if (!$complaint['tenant_response']): ?>
+          <!-- Confirmation Button for Resolved Complaints -->
+          <?php if ($complaint['status'] === 'resolved'): ?>
+            <div class="bg-success-50 rounded-xl border border-success-200 p-6 mt-6">
+              <div class="flex items-start gap-4">
+                <div class="w-12 h-12 rounded-full bg-success-100 text-success-600 flex items-center justify-center flex-shrink-0">
+                  <i class="fa-solid fa-circle-check text-xl"></i>
+                </div>
+                <div class="flex-1">
+                  <h3 class="font-bold text-success-900 mb-2">Issue Resolved</h3>
+                  <p class="text-sm text-success-700 mb-4">The landlord has marked this complaint as resolved. If the issue is fixed to your satisfaction, please confirm below.</p>
+                  <form action="<?= Router::url('tenant/confirm-resolution') ?>" method="POST" onsubmit="return confirm('Confirm that this issue has been resolved to your satisfaction?');">
+                    <input type="hidden" name="complaint_id" value="<?= (int)$complaint['id'] ?>">
+                    <button type="submit" class="btn btn-success">
+                      <i class="fa-solid fa-check-double"></i> Confirm Resolution
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          <?php endif; ?>
+
+          <?php if (!$complaint['tenant_response'] && $complaint['status'] !== 'closed'): ?>
             <div class="bg-gray-50 rounded-xl border border-gray-200 p-6">
               <h3 class="font-bold text-gray-900 mb-3 flex items-center gap-2">
                 <i class="fa-solid fa-comment-dots text-gray-600"></i>
@@ -111,11 +138,6 @@ document.addEventListener('DOMContentLoaded', function() {
               <div class="text-green-900 leading-relaxed">
                 <?= nl2br(htmlspecialchars($complaint['tenant_response'])) ?>
               </div>
-              <?php if ($complaint['tenant_response_at']): ?>
-                <div class="mt-4 text-xs text-green-400 font-medium border-t border-green-100 pt-3">
-                  Responded on <?= date('F j, Y, g:i a', strtotime($complaint['tenant_response_at'])) ?>
-                </div>
-              <?php endif; ?>
             </div>
           <?php endif; ?>
         <?php else: ?>
@@ -130,6 +152,18 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <style>
-.grid-col-8 { grid-column: span 8; }
-.mx-auto { margin-left: auto; margin-right: auto; }
+/* Desktop: centered single column with max width */
+.grid-col-8 { 
+  max-width: 900px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Mobile: full width */
+@media (max-width: 768px) {
+  .grid-col-8 {
+    max-width: 100%;
+  }
+}
 </style>

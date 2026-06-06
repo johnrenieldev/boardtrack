@@ -70,6 +70,18 @@ class AuthController extends Controller
             $this->redirect('auth/login');
         }
 
+        // Block moved_out tenants from logging in
+        if ($user['status'] === 'moved_out') {
+            $this->flash('error', 'Your tenancy has ended. Please contact the landlord if you need access.');
+            $this->redirect('auth/login');
+        }
+
+        // Block tenants who haven't verified their email yet
+        if ($user['status'] === 'unverified') {
+            $this->flash('error', 'Please verify your email address before signing in. Check your inbox for the verification link.');
+            $this->redirect('auth/login');
+        }
+
         // Route to second-factor verification when 2FA is enabled.
         if (!empty($user['totp_enabled'])) {
             // Store the verified-password user in session pending TOTP confirmation.
@@ -476,7 +488,7 @@ class AuthController extends Controller
         if (strlen($password) < 8)                      $errors[] = 'Password must be at least 8 characters.';
         if ($password !== $confirm)                     $errors[] = 'Passwords do not match.';
         if (empty($gender))                             $errors[] = 'Please select your gender.';
-        if (!in_array($gender, ['male', 'female']))     $errors[] = 'Invalid gender selected.';
+        if (!in_array($gender, ['male', 'female', 'prefer_not_to_say']))     $errors[] = 'Invalid gender selected.';
         if (empty($roomPreference))                     $errors[] = 'Please select a room type preference.';
         if (!in_array($airConditionedPreference, [0, 1], true)) $errors[] = 'Invalid air-conditioning preference selected.';
         if (empty($guardianName) || strlen($guardianName) < 2) {
@@ -534,7 +546,7 @@ class AuthController extends Controller
             'email'    => $email,
             'password' => $hashed,
             'role'     => 'tenant',
-            'status'   => 'pending',
+            'status'   => 'unverified',  // Blocks login until email is verified
         ]);
 
         if (!$userId) {

@@ -59,7 +59,7 @@ $filters    = $filters    ?? [];
 
 <!-- Filters -->
 <div class="card" style="margin-bottom:16px;padding:14px 20px;">
-  <form method="GET" action="<?= Router::url('landlord/complaints') ?>" class="filter-bar" style="margin-bottom:0;">
+  <form method="GET" action="index.php" class="filter-bar" style="margin-bottom:0;">
     <input type="hidden" name="url" value="landlord/complaints">
     <select name="status" class="form-select">
       <option value="">All Statuses</option>
@@ -328,3 +328,163 @@ document.addEventListener('click', function(e) {
   }
 });
 </script>
+
+<style>
+/* Center column headers and data */
+.bt-table th {
+  text-align: center !important;
+}
+
+.bt-table td {
+  text-align: center !important;
+}
+
+/* Keep first column (Complaint) left-aligned */
+.bt-table th:first-child,
+.bt-table td:first-child {
+  text-align: left !important;
+}
+
+/* Mobile responsive styles for complaints table */
+@media (max-width: 767px) {
+  .card {
+    max-height: calc(100vh - 280px) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .table-wrap {
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  .bt-table {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    table-layout: auto !important;
+  }
+  
+  .bt-table tbody tr {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-bottom: 16px !important;
+  }
+  
+  .bt-table tbody tr:last-child {
+    margin-bottom: 20px !important;
+  }
+  
+  .bt-table th,
+  .bt-table td {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  
+  /* Complaint - full width with grey background */
+  .bt-table td:first-child {
+    padding: 14px 16px !important;
+    background: var(--gray-100) !important;
+    text-align: left !important;
+  }
+  
+  /* Other fields - label on left, value on right */
+  .bt-table td[data-label]:not(:first-child)::before {
+    width: 110px !important;
+    min-width: 110px !important;
+    flex-shrink: 0 !important;
+    padding-right: 0 !important;
+  }
+  
+  .bt-table td[data-label]:not(:first-child) {
+    display: flex !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    text-align: left !important;
+    gap: 12px !important;
+    padding: 10px 14px !important;
+  }
+  
+  /* Category badge - wrap tightly */
+  .bt-table td[data-label="Category"] .badge {
+    display: inline-flex !important;
+    width: auto !important;
+    max-width: fit-content !important;
+  }
+  
+  /* Submitted By - align left */
+  .bt-table td[data-label="Submitted By"] > div {
+    justify-content: flex-start !important;
+  }
+  
+  /* Status badge - wrap tightly */
+  .bt-table td[data-label="Status"] .badge {
+    display: inline-flex !important;
+    width: auto !important;
+    max-width: fit-content !important;
+  }
+  
+  /* Actions - center the buttons */
+  .bt-table td[data-col="actions"] {
+    justify-content: center !important;
+    text-align: center !important;
+  }
+  
+  .bt-table td[data-col="actions"]::before {
+    display: none !important;
+  }
+  
+  .bt-table td[data-col="actions"] {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    padding: 10px 14px !important;
+  }
+  
+  /* Make action buttons full width on mobile */
+  .bt-table td[data-col="actions"] > button {
+    width: 100% !important;
+    margin: 0 !important;
+  }
+  
+  /* Prevent text wrapping issues */
+  .bt-table,
+  .bt-table th,
+  .bt-table td,
+  .bt-table th *,
+  .bt-table td * {
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+    word-wrap: normal !important;
+    white-space: normal !important;
+  }
+  
+  .bt-table td[data-label]::before {
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+  }
+  
+  /* Custom scrollbar for card */
+  .card::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .card::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+  }
+  
+  .card::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+  }
+  
+  .card::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+}
+</style>

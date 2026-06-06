@@ -4,8 +4,8 @@
  *
  * Requirements:
  * - No numeric counters. Red dot indicates existence of unread notifications.
- * - Sections: "New" (unread) and "Today" (read).
- * - Click unread -> Mark read (AJAX) -> Move to "Today" -> Update dots.
+ * - Sections: "New" (unread) and "Seen" (read).
+ * - Click unread -> Mark read (AJAX) -> Move to "Seen" -> Update dots.
  * - Click read -> Navigate normally.
  * - Delete -> Remove from DOM -> Update dots.
  * - Double-click and race condition guards included.
@@ -15,42 +15,72 @@
 
   /**
    * Syncs global red dots (navbar/sidebar) based on current DOM state.
+   * FIXED: Now properly hides red dot when all notifications are read.
+   * Also updates the "New" section count badge.
    */
   function syncGlobalDots() {
-    // Only sync from DOM if we are on a page that actually lists notifications
-    var listContainer = document.querySelector('.notif-list-container');
-    if (!listContainer) return;
-
-    var hasUnread = document.querySelector('[data-notif-read="0"]') !== null;
-    document.querySelectorAll('.notif-red-dot').forEach(function (dot) {
-      dot.hidden = !hasUnread;
+    // Check if there are any unread notifications in the DOM
+    var unreadElements = document.querySelectorAll('[data-notif-read="0"]');
+    var hasUnread = unreadElements.length > 0;
+    
+    // Debug logging (remove after testing)
+    console.log('[NotifSync] Unread count:', unreadElements.length, 'hasUnread:', hasUnread);
+    
+    // Update all red dots (navbar and sidebar)
+    var allDots = document.querySelectorAll('.notif-red-dot, .notif-red-dot-sidebar');
+    console.log('[NotifSync] Found', allDots.length, 'red dots to update');
+    
+    allDots.forEach(function (dot) {
+      if (hasUnread) {
+        dot.hidden = false;
+        dot.removeAttribute('hidden');
+        dot.style.display = '';
+      } else {
+        dot.hidden = true;
+        dot.setAttribute('hidden', '');
+        dot.style.display = 'none';
+      }
     });
+    
+    // Update the "New" section count badge
+    var countBadge = document.querySelector('.notif-count-badge');
+    if (countBadge) {
+      var unreadCount = unreadElements.length;
+      countBadge.textContent = unreadCount;
+      
+      // Hide badge if count is 0
+      if (unreadCount === 0) {
+        countBadge.style.display = 'none';
+      } else {
+        countBadge.style.display = 'inline-flex';
+      }
+    }
   }
 
   /**
-   * Moves a card from "New" section to "Today" section.
+   * Moves a card from "New" section to "Seen" section.
    * Updates styling and removes unread indicators.
    */
-  function moveCardToToday(card) {
-    var todaySection = document.getElementById('notif-section-today');
+  function moveCardToSeen(card) {
+    var seenSection = document.getElementById('notif-section-seen');
 
-    // Create "Today" section if it doesn't exist
-    if (!todaySection) {
-      todaySection = document.createElement('div');
-      todaySection.className = 'notif-group';
-      todaySection.id = 'notif-section-today';
+    // Create "Seen" section if it doesn't exist
+    if (!seenSection) {
+      seenSection = document.createElement('div');
+      seenSection.className = 'notif-group';
+      seenSection.id = 'notif-section-seen';
 
       var header = document.createElement('div');
       header.className = 'notif-group-header';
-      header.textContent = 'Today';
-      todaySection.appendChild(header);
+      header.textContent = 'Seen';
+      seenSection.appendChild(header);
 
       var newSection = document.getElementById('notif-section-new');
       if (newSection && newSection.parentNode) {
-        newSection.parentNode.insertBefore(todaySection, newSection.nextSibling);
+        newSection.parentNode.insertBefore(seenSection, newSection.nextSibling);
       } else {
         var container = document.querySelector('.notif-list-container');
-        if (container) container.appendChild(todaySection);
+        if (container) container.appendChild(seenSection);
       }
     }
 
@@ -63,8 +93,8 @@
     var dot = card.querySelector('.notif-dot');
     if (dot) dot.remove();
 
-    // Move to Today section
-    todaySection.appendChild(card);
+    // Move to Seen section
+    seenSection.appendChild(card);
 
     // Remove "New" section if empty
     var newSection = document.getElementById('notif-section-new');
@@ -113,21 +143,24 @@
     }
 
     function applyUpdate() {
-      moveCardToToday(card);
+      moveCardToSeen(card);
       syncGlobalDots();
-      navigate();
     }
 
-    // Failsafe timer (900ms)
-    var failsafe = href ? setTimeout(applyUpdate, 900) : null;
+    // Failsafe timer (1500ms) - increased to allow AJAX to complete
+    var failsafe = href ? setTimeout(function() {
+      applyUpdate();
+      navigate();
+    }, 1500) : null;
 
     if (!markReadUrl) {
       if (failsafe) clearTimeout(failsafe);
       applyUpdate();
+      navigate();
       return;
     }
 
-    // AJAX Mark Read
+    // AJAX Mark Read - wait for completion before navigating
     var params = new URLSearchParams();
     params.append('notification_id', id);
 
@@ -139,13 +172,22 @@
       },
       body: params.toString()
     })
-    .then(function() {
+    .then(function(response) {
       if (failsafe) clearTimeout(failsafe);
-      applyUpdate();
+      // Wait a brief moment to ensure DB write completes
+      return new Promise(function(resolve) {
+        setTimeout(resolve, 100);
+      });
     })
-    .catch(function() {
+    .then(function() {
+      applyUpdate();
+      navigate();
+    })
+    .catch(function(err) {
+      console.log('[NotifClick] AJAX failed, using optimistic update:', err);
       if (failsafe) clearTimeout(failsafe);
       applyUpdate(); // Optimistic update
+      navigate();
     });
   }
 
@@ -213,7 +255,86 @@
   // Initialize
   document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('click', handleNotificationClick);
-    syncGlobalDots();
+    
+    // Only sync red dots if we're on the notifications page
+    // (where [data-notif-id] elements actually exist)
+    var isNotificationsPage = document.querySelector('[data-notif-id]') !== null;
+    
+    if (isNotificationsPage) {
+      // Force sync on page load to ensure red dots match actual DOM state
+      syncGlobalDots();
+      
+      // Sync again after a short delay to catch any late-loading elements
+      setTimeout(function() {
+        syncGlobalDots();
+      }, 100);
+      
+      // Sync again after 500ms to be extra sure
+      setTimeout(function() {
+        syncGlobalDots();
+      }, 500);
+    } else {
+      // On non-notification pages, poll for unread count to sync red dots
+      // This ensures red dots update when user reads notifications and navigates back
+      pollUnreadCount();
+      
+      // Poll more frequently initially (in case user just navigated from notifications page)
+      setTimeout(pollUnreadCount, 2000);  // Poll after 2 seconds
+      setTimeout(pollUnreadCount, 5000);  // Poll after 5 seconds
+      setTimeout(pollUnreadCount, 10000); // Poll after 10 seconds
+      
+      // Then poll every 30 seconds for ongoing updates
+      setInterval(pollUnreadCount, 30000);
+    }
+  });
+  
+  /**
+   * Polls the server for unread notification count and updates red dots.
+   * Only used on non-notification pages.
+   */
+  function pollUnreadCount() {
+    // Use server-provided base URL if available, otherwise construct from window.location
+    var pollUrl = (window.BOARDTRACK_BASE_URL || '/index.php') + '?url=notification/unreadCount';
+    
+    fetch(pollUrl, {
+      method: 'GET',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      if (data && typeof data.has_unread !== 'undefined') {
+        var allDots = document.querySelectorAll('.notif-red-dot, .notif-red-dot-sidebar');
+        allDots.forEach(function(dot) {
+          if (data.has_unread) {
+            dot.hidden = false;
+            dot.removeAttribute('hidden');
+            dot.style.display = '';
+          } else {
+            dot.hidden = true;
+            dot.setAttribute('hidden', '');
+            dot.style.display = 'none';
+          }
+        });
+      }
+    })
+    .catch(function(err) {
+      // Silently fail - don't disrupt user experience
+      console.log('[NotifPoll] Failed to poll unread count:', err);
+    });
+  }
+  
+  // Also sync when page becomes visible (handles tab switching)
+  // But only if we're on the notifications page
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) {
+      var isNotificationsPage = document.querySelector('[data-notif-id]') !== null;
+      if (isNotificationsPage) {
+        syncGlobalDots();
+      } else {
+        // Poll immediately when returning to a non-notification page
+        pollUnreadCount();
+      }
+    }
   });
 
 })();

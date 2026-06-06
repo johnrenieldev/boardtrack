@@ -67,6 +67,11 @@ $hasUnread   = (bool) ($hasUnreadNotifications ?? false);
          aria-current="<?= str_starts_with($currentUrl, 'landlord/payment') ? 'page' : 'false' ?>">
         <i class="fa-solid fa-credit-card" aria-hidden="true"></i><span>Payments</span>
       </a>
+      <a href="<?= Router::url('landlord/penalties') ?>"
+         class="nav-item <?= str_starts_with($currentUrl, 'landlord/penalt') ? 'active' : '' ?>"
+         aria-current="<?= str_starts_with($currentUrl, 'landlord/penalt') ? 'page' : 'false' ?>">
+        <i class="fa-solid fa-percent" aria-hidden="true"></i><span>Penalties</span>
+      </a>
 
       <div class="nav-section-label">Communication</div>
       <a href="<?= Router::url('landlord/complaints') ?>"
@@ -74,17 +79,29 @@ $hasUnread   = (bool) ($hasUnreadNotifications ?? false);
          aria-current="<?= str_starts_with($currentUrl, 'landlord/complaint') ? 'page' : 'false' ?>">
         <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>Complaints</span>
       </a>
+      <?php /* Maintenance feature temporarily disabled
+      <a href="<?= Router::url('landlord/maintenance') ?>"
+         class="nav-item <?= str_starts_with($currentUrl, 'landlord/maintenance') ? 'active' : '' ?>"
+         aria-current="<?= str_starts_with($currentUrl, 'landlord/maintenance') ? 'page' : 'false' ?>">
+        <i class="fa-solid fa-wrench" aria-hidden="true"></i><span>Maintenance</span>
+      </a>
+      */ ?>
       <a href="<?= Router::url('landlord/announcements') ?>"
          class="nav-item <?= str_starts_with($currentUrl, 'landlord/announcement') ? 'active' : '' ?>"
          aria-current="<?= str_starts_with($currentUrl, 'landlord/announcement') ? 'page' : 'false' ?>">
         <i class="fa-solid fa-bullhorn" aria-hidden="true"></i><span>Announcements</span>
+      </a>
+      <a href="<?= Router::url('landlord/reviews') ?>"
+         class="nav-item <?= str_starts_with($currentUrl, 'landlord/review') ? 'active' : '' ?>"
+         aria-current="<?= str_starts_with($currentUrl, 'landlord/review') ? 'page' : 'false' ?>">
+        <i class="fa-solid fa-star" aria-hidden="true"></i><span>Reviews</span>
       </a>
       <a href="<?= Router::url('landlord/notifications') ?>"
          class="nav-item nav-item-notif <?= str_starts_with($currentUrl, 'landlord/notification') ? 'active' : '' ?>"
          aria-current="<?= str_starts_with($currentUrl, 'landlord/notification') ? 'page' : 'false' ?>">
         <span class="nav-item-icon-wrap">
           <i class="fa-solid fa-bell" aria-hidden="true"></i>
-          <span class="notif-red-dot notif-red-dot-sidebar"<?= $hasUnread ? '' : ' hidden' ?> aria-label="Unread notifications"></span>
+          <span class="notif-red-dot notif-red-dot-sidebar"<?= $hasUnread ? '' : ' hidden' ?> aria-label="Unread notifications" data-debug-hasunread="<?= $hasUnread ? 'true' : 'false' ?>"></span>
         </span>
         <span>Notifications</span>
       </a>
@@ -169,5 +186,8 @@ $hasUnread   = (bool) ($hasUnreadNotifications ?? false);
   border: 2px solid #fff;
   display: block;
   pointer-events: none;
+}
+.notif-red-dot-sidebar[hidden] {
+  display: none !important;
 }
 </style>

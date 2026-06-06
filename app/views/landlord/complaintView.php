@@ -9,7 +9,7 @@
       <i class="fa-solid fa-arrow-left"></i>
     </a>
     <div>
-      <h1 class="complaint-title">Complaint Details</h1>
+      <h1 class="complaint-title" style="font-weight: 900;">Complaint Details</h1>
       <p class="complaint-subtitle">Review and resolve tenant issues.</p>
     </div>
   </div>
@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <!-- Left Column: Complaint Details -->
   <div class="complaint-main space-y-6">
     <!-- Status Card -->
-    <div class="card overflow-hidden bg-brand-600 shadow-lg shadow-brand-500/10 border-none">
+    <div class="card overflow-hidden shadow-lg shadow-brand-500/10 border-none" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); min-height: auto;">
       <div class="p-5 flex items-center gap-5">
         <div class="w-12 h-12 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center text-xl text-white border border-white/20">
           <i class="fa-solid <?= match($complaint['status']) {
@@ -131,7 +131,6 @@ document.addEventListener('DOMContentLoaded', function() {
               <div class="relative">
                 <div class="flex items-center justify-between mb-3">
                   <div class="text-[0.65rem] font-black text-success-400 uppercase tracking-widest">Tenant Follow-up</div>
-                  <span class="text-[0.6rem] font-black text-success-400 uppercase"><?= date('M j, Y', strtotime($complaint['tenant_response_at'])) ?></span>
                 </div>
                 <div class="text-sm font-bold text-success-900 leading-relaxed">
                   <?= nl2br(htmlspecialchars($complaint['tenant_response'])) ?>
@@ -167,7 +166,6 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div>
               <div class="font-black text-gray-900 leading-tight"><?= htmlspecialchars($complaint['display_name'] ?? 'Anonymous') ?></div>
-              <div class="text-xs font-bold text-gray-400 uppercase tracking-widest">Room <?= htmlspecialchars($complaint['room_number'] ?? 'N/A') ?></div>
             </div>
           </div>
           <a href="<?= Router::url('landlord/view-tenant/' . $complaint['tenant_id']) ?>" class="btn btn-secondary w-full py-2.5 font-black text-[0.65rem] uppercase tracking-widest rounded-xl shadow-xs transition-all hover:bg-gray-100">
@@ -182,7 +180,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <div class="card overflow-hidden border-brand-100 shadow-lg shadow-brand-500/5">
         <div class="px-6 py-4 border-b border-brand-50 bg-brand-50/30 flex items-center justify-between">
           <h3 class="font-black text-brand-900 flex items-center gap-2 uppercase tracking-widest text-xs">
-            <i class="fa-solid fa-reply-all"></i> Resolution Center
+            <i class="fa-solid fa-comment-dots"></i> Send Message to Tenant
           </h3>
           <span class="w-2 h-2 rounded-full bg-brand-500 animate-pulse"></span>
         </div>
@@ -191,7 +189,13 @@ document.addEventListener('DOMContentLoaded', function() {
             <input type="hidden" name="complaint_id" value="<?= $complaint['id'] ?>">
             
             <div>
-              <label class="block text-[0.65rem] font-black text-gray-400 uppercase tracking-widest mb-2">Update Progress</label>
+              <label class="block text-[0.65rem] font-black text-gray-400 uppercase tracking-widest mb-2">Your Response / Note <span class="text-danger">*</span></label>
+              <textarea name="response" class="form-textarea text-sm font-medium rounded-2xl border-gray-200 focus:border-brand-500 transition-all min-h-[140px]" required placeholder="Write your response or note to the tenant about this complaint..."></textarea>
+              <p class="text-[0.65rem] text-gray-400 mt-2 font-medium">This message will be sent to the tenant via notification and displayed on their complaint view.</p>
+            </div>
+
+            <div>
+              <label class="block text-[0.65rem] font-black text-gray-400 uppercase tracking-widest mb-2">Update Status</label>
               <select name="status" class="form-select font-black text-xs uppercase tracking-tight rounded-xl border-gray-200 focus:border-brand-500 transition-all">
                 <option value="in_progress" <?= $complaint['status'] === 'in_progress' ? 'selected' : '' ?>>In Progress</option>
                 <option value="resolved">Mark as Resolved</option>
@@ -199,14 +203,9 @@ document.addEventListener('DOMContentLoaded', function() {
               </select>
             </div>
 
-            <div>
-              <label class="block text-[0.65rem] font-black text-gray-400 uppercase tracking-widest mb-2">Official Response <span class="text-danger">*</span></label>
-              <textarea name="response" class="form-textarea text-sm font-medium rounded-2xl border-gray-200 focus:border-brand-500 transition-all min-h-[120px]" required placeholder="Detail the steps taken to address this issue..."></textarea>
-            </div>
-
             <button type="submit" class="btn btn-primary w-full py-4 flex items-center justify-center gap-3 text-sm font-black uppercase tracking-widest shadow-lg shadow-brand-500/20 rounded-2xl transition-all hover:-translate-y-1 active:translate-y-0">
               <i class="fa-solid fa-paper-plane text-lg"></i>
-              Post Response
+              Send Message & Update Status
             </button>
           </form>
         </div>
@@ -220,6 +219,30 @@ document.addEventListener('DOMContentLoaded', function() {
 .complaint-page-header { margin-bottom: 24px; }
 .btn-back { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 12px; background: white; border: 1px solid #e2e8f0; color: #64748b; transition: all 0.2s ease; }
 .btn-back:hover { background: #f8fafc; color: #0f172a; transform: translateX(-4px); }
-.complaint-grid { display: grid; grid-template-columns: 1fr 340px; gap: 24px; }
-@media (max-width: 1024px) { .complaint-grid { grid-template-columns: 1fr; } }
+
+/* Desktop: 2-column layout */
+.complaint-grid { 
+  display: grid; 
+  grid-template-columns: 1fr 340px; 
+  gap: 24px; 
+  align-items: start;
+}
+
+/* Tablet and below: single column */
+@media (max-width: 1024px) { 
+  .complaint-grid { 
+    grid-template-columns: 1fr; 
+  } 
+}
+
+/* Mobile: ensure proper spacing */
+@media (max-width: 768px) {
+  .complaint-grid {
+    gap: 16px;
+  }
+  .complaint-main,
+  .complaint-sidebar {
+    width: 100%;
+  }
+}
 </style>

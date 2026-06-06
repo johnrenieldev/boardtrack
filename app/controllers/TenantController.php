@@ -66,9 +66,12 @@ class TenantController extends Controller
         // Get dashboard statistics
         $roomId = !empty($tenant['room_id']) ? (int) $tenant['room_id'] : null;
         $stats = [
-            'unpaidBills' => $this->billModel->countUnpaidForTenant((int) $tenant['id'], $roomId),
+            'unpaidBills'     => $this->billModel->countUnpaidForTenant((int) $tenant['id'], $roomId),
+            'partialBills'    => $this->billModel->countByStatusForTenant('partial', (int) $tenant['id'], $roomId),
+            'overdueBills'    => $this->billModel->countByStatusForTenant('overdue', (int) $tenant['id'], $roomId),
             'pendingPayments' => $this->paymentModel->count("tenant_id = :tid AND status = 'pending'", [':tid' => $tenant['id']]),
-            'openComplaints' => $this->complaintModel->count("tenant_id = :tid AND status IN ('pending', 'in_progress')", [':tid' => $tenant['id']]),
+            'openComplaints'  => $this->complaintModel->count("tenant_id = :tid AND status IN ('pending', 'in_progress')", [':tid' => $tenant['id']]),
+            'totalAmountDue'  => $this->billModel->getTotalRemainingForTenant((int) $tenant['id'], $roomId),
         ];
 
         // Get recent data
@@ -79,6 +82,7 @@ class TenantController extends Controller
         );
         $recentAnnouncements = $this->notificationModel->getAnnouncements($user['id'], 3);
         $notifications = $this->notificationModel->getForUser($user['id'], false, 5);
+        $unreadNotificationCount = $this->notificationModel->getUnreadCount((int) $user['id']);
 
         // Get roommates if assigned to shared room
         $roommates = [];
@@ -95,6 +99,7 @@ class TenantController extends Controller
             'recentBills' => $recentBills,
             'recentAnnouncements' => $recentAnnouncements,
             'notifications' => $notifications,
+            'unreadNotificationCount' => $unreadNotificationCount,
             'roommates' => $roommates,
         ], 'tenant');
     }
@@ -108,6 +113,13 @@ class TenantController extends Controller
         $roomId = !empty($tenant['room_id']) ? (int) $tenant['room_id'] : null;
         $bills = $this->billModel->getForTenant((int) $tenant['id'], $roomId);
         $statistics = $this->billModel->getTenantBillStatistics((int) $tenant['id'], $roomId);
+
+        // Get payment history for each bill
+        foreach ($bills as &$bill) {
+            $bill['payment_history'] = $this->paymentModel->getPaymentHistory((int)$bill['id']);
+            $bill['total_paid'] = $this->paymentModel->getTotalPaidForBill((int)$bill['id']);
+            $bill['remaining_balance'] = max(0, (float)$bill['amount'] - (float)$bill['total_paid']);
+        }
 
         if (!$roomId && empty($bills)) {
             $this->view('tenant/bills', [
@@ -139,13 +151,25 @@ class TenantController extends Controller
             $this->redirect('tenant/bills');
         }
 
+        // Check if bill is fully paid by status
         if ($bill['status'] === 'paid') {
-            $this->flash('info', 'This bill has already been paid.');
+            $this->flash('info', 'This bill has already been fully paid.');
             $this->redirect('tenant/bills');
         }
 
-        if ($bill['status'] === 'pending_verification') {
-            $this->flash('error', 'A payment for this bill is already awaiting landlord verification.');
+        // Check if bill is fully paid by amount (even if status is still 'partial')
+        $billTotal = (float)($bill['amount'] ?? 0);
+        $amountPaid = (float)($bill['amount_paid'] ?? 0);
+        $remainingBalance = max(0, $billTotal - $amountPaid);
+        
+        if ($remainingBalance <= 0) {
+            $this->flash('info', 'This bill has already been fully paid.');
+            $this->redirect('tenant/bills');
+        }
+
+        // Allow payment for unpaid, partial, and overdue bills
+        if (!in_array($bill['status'], ['unpaid', 'partial', 'overdue'])) {
+            $this->flash('error', 'This bill cannot be paid at this time.');
             $this->redirect('tenant/bills');
         }
 
@@ -181,17 +205,29 @@ class TenantController extends Controller
             $this->redirect($redirectPay);
         }
 
-        if ($bill['status'] === 'pending_verification') {
-            $this->flash('error', 'A payment for this bill is already awaiting landlord verification.');
-            $this->redirect($redirectPay);
-        }
-
+        // Check for existing pending payment
         $existing = $this->paymentModel->rawQueryOne(
             "SELECT id FROM payments WHERE bill_id = :bill_id AND status = 'pending' LIMIT 1",
             [':bill_id' => $billId]
         );
         if ($existing) {
             $this->flash('error', 'A payment for this bill is already pending verification.');
+            $this->redirect($redirectPay);
+        }
+
+        // Validate amount_paid
+        $paymentAmount = (float) ($_POST['amount_paid'] ?? 0);
+        $billTotal = (float) ($bill['amount'] ?? 0);
+        $alreadyPaid = (float) ($bill['amount_paid'] ?? 0);
+        $remainingBalance = max(0, $billTotal - $alreadyPaid);
+
+        if ($paymentAmount <= 0) {
+            $this->flash('error', 'Payment amount must be greater than zero.');
+            $this->redirect($redirectPay);
+        }
+
+        if ($paymentAmount > $remainingBalance) {
+            $this->flash('error', 'Payment amount cannot exceed remaining balance of ₱' . number_format($remainingBalance, 2));
             $this->redirect($redirectPay);
         }
 
@@ -238,20 +274,7 @@ class TenantController extends Controller
             $this->redirect($redirectPay);
         }
 
-        // Support partial payments
-        $paymentAmount = (float) ($_POST['amount'] ?? $bill['amount']);
-        $isPartial = $paymentAmount < (float) $bill['amount'];
-        $canAcceptPartial = $this->billModel->canAcceptPartialPayment($billId);
-
-        if ($isPartial && !$canAcceptPartial) {
-            $this->flash('error', 'Partial payments are not allowed for this bill.');
-            $this->redirect($redirectPay);
-        }
-
-        if ($paymentAmount <= 0) {
-            $this->flash('error', 'Payment amount must be greater than zero.');
-            $this->redirect($redirectPay);
-        }
+        $isPartial = $paymentAmount < $remainingBalance;
 
         $paymentData = [
             'amount_paid'     => $paymentAmount,
@@ -274,12 +297,11 @@ class TenantController extends Controller
             $this->paymentModel->beginTransaction();
             $paymentId = $this->paymentModel->submitPartialPayment($billId, (int) $tenant['id'], $paymentData);
 
-            // Update bill status based on payment type
-            if ($isPartial) {
-                $this->billModel->update(['status' => 'pending_verification'], ['id' => $billId]);
-            } else {
-                $this->billModel->update(['status' => 'pending_verification'], ['id' => $billId]);
-            }
+            // Update bill status to 'pending_verification' ONLY - do NOT update amount_paid yet
+            // Amount_paid will be updated only when landlord approves the payment
+            $this->billModel->update([
+                'status' => 'pending_verification',
+            ], ['id' => $billId]);
 
             if ($landlord) {
                 $paymentType = $isPartial ? 'partial' : '';
@@ -537,8 +559,7 @@ class TenantController extends Controller
         }
 
         $this->complaintModel->update([
-            'tenant_response'   => $response,
-            'tenant_response_at' => date('Y-m-d H:i:s')
+            'tenant_response' => $response
         ], ['id' => $id]);
 
         // Get landlord user_id for notification
@@ -559,6 +580,52 @@ class TenantController extends Controller
 
         $this->flash('success', 'Your response has been sent to the landlord.');
         $this->redirect('tenant/view-complaint/' . $id);
+    }
+
+    /** POST /?url=tenant/confirm-resolution */
+    public function confirmResolution(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('tenant/complaints');
+        }
+
+        $tenant    = $this->requireApprovedTenant();
+        $id        = (int) ($_POST['complaint_id'] ?? 0);
+        $complaint = $this->complaintModel->find($id);
+
+        if (!$complaint || $complaint['tenant_id'] != $tenant['id']) {
+            $this->flash('error', 'Complaint not found.');
+            $this->redirect('tenant/complaints');
+        }
+
+        if ($complaint['status'] !== 'resolved') {
+            $this->flash('error', 'This complaint has not been marked as resolved yet.');
+            $this->redirect('tenant/view-complaint/' . $id);
+        }
+
+        // Mark as closed
+        $this->complaintModel->update([
+            'status' => 'closed'
+        ], ['id' => $id]);
+
+        // Notify landlord
+        $landlord = $this->userModel->getLandlordAccount();
+        if ($landlord && isset($landlord['id'])) {
+            $this->notificationModel->createNotification(
+                $landlord['id'], 'complaint', 'Tenant Confirmed Resolution',
+                'Tenant has confirmed that complaint "' . $complaint['title'] . '" has been resolved.',
+                'landlord/view-complaint/' . $id
+            );
+        }
+
+        $this->auditLogModel->log(
+            $_SESSION['user_id'], 'tenant_confirmed_resolution', 'complaint', $id,
+            ['status' => 'resolved'], ['status' => 'closed'],
+            'Tenant confirmed complaint resolution'
+        );
+
+        $this->flash('success', 'Thank you for confirming. This complaint is now closed.');
+        $this->redirect('tenant/complaints');
     }
 
     // ANNOUNCEMENTS
@@ -784,14 +851,41 @@ class TenantController extends Controller
         // Update name + email only (no password_hash here)
         $this->userModel->update(['name' => $name, 'email' => $email], ['id' => $userId]);
 
+        // SECURITY: Only allow tenant to update personal preferences
+        // NEVER allow: room_id, room_number, occupancy, landlord-assigned fields
         $tenantData = [
-            'room_type_preference'       => $_POST['room_type_preference'] ?? $tenant['room_type_preference'],
-            'air_conditioned_preference' => isset($_POST['air_conditioned_preference']) ? 1 : 0,
             'gender'                     => $_POST['gender'] ?? $tenant['gender'],
             'guardian_name'              => $guardianName,
             'guardian_email'             => $guardianEmail,
             'guardian_purpose'           => $guardianPurpose,
         ];
+        
+        // SECURITY: If tenant has a room assigned, don't allow changing room preferences
+        // Only landlord can manage room assignments
+        if (!empty($tenant['room_id'])) {
+            // Tenant has a room — keep existing preferences, ignore POST values
+            $tenantData['room_type_preference']       = $tenant['room_type_preference'];
+            $tenantData['air_conditioned_preference'] = $tenant['air_conditioned_preference'];
+        } else {
+            // No room assigned yet — allow updating preferences
+            $tenantData['room_type_preference']       = $_POST['room_type_preference'] ?? $tenant['room_type_preference'];
+            $tenantData['air_conditioned_preference'] = isset($_POST['air_conditioned_preference']) ? 1 : 0;
+        }
+        
+        // SECURITY CHECK: Ensure no room assignment fields are in POST data
+        $protectedFields = ['room_id', 'room_number', 'move_in_date', 'move_out_date', 'status'];
+        foreach ($protectedFields as $field) {
+            if (isset($_POST[$field])) {
+                $this->auditLogModel->log(
+                    $userId, 'security_violation', 'tenant', $tenant['id'],
+                    null, ['attempted_field' => $field],
+                    'Attempted to modify protected room assignment field'
+                );
+                $this->flash('error', 'Security violation: Unauthorized field modification attempt.');
+                $this->redirect('tenant/profile');
+            }
+        }
+        
         $this->tenantModel->update($tenantData, ['id' => $tenant['id']]);
 
         $_SESSION['user_name']  = $name;
@@ -906,8 +1000,8 @@ class TenantController extends Controller
                 $landlordId,
                 'review',
                 'New Review Submitted',
-                "{$user['name']} has submitted a review for BoardTrack.",
-                Router::url('landlord/dashboard')
+                "{$user['name']} has submitted a {$rating}-star review for BoardTrack.",
+                'landlord/reviews'
             );
         }
 
@@ -982,7 +1076,7 @@ class TenantController extends Controller
                 'review',
                 'Review Updated',
                 "{$user['name']} has updated their review for BoardTrack.",
-                Router::url('landlord/dashboard')
+                'landlord/reviews'
             );
         }
 

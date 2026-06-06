@@ -25,6 +25,11 @@
 .comp-badge-good { background: var(--color-brand-light); color: var(--color-brand); border-color: var(--color-brand-border); }
 .comp-badge-moderate { background: var(--color-warning-light); color: var(--color-warning); border-color: var(--color-warning-border); }
 .comp-badge-poor { background: var(--color-danger-light); color: var(--color-danger); border-color: var(--color-danger-border); }
+.comp-badge-green { background: var(--color-success-light); color: var(--color-success); border-color: var(--color-success-border); }
+.comp-badge-blue { background: var(--color-brand-light); color: var(--color-brand); border-color: var(--color-brand-border); }
+.comp-badge-orange { background: var(--color-warning-light); color: var(--color-warning); border-color: var(--color-warning-border); }
+.comp-badge-red { background: var(--color-danger-light); color: var(--color-danger); border-color: var(--color-danger-border); }
+.comp-badge-gray { background: var(--gray-50); color: var(--gray-600); border-color: var(--gray-200); }
 
 .comp-score-circle {
     display: flex;

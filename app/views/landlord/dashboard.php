@@ -8,6 +8,10 @@ $stats               = $stats               ?? [];
 $recentComplaints    = $recentComplaints    ?? [];
 $recentAnnouncements = $recentAnnouncements ?? [];
 $pendingPayments     = $pendingPayments     ?? [];
+$totalRooms          = max(0, (int)($stats['totalRooms'] ?? 0));
+$availableRooms      = max(0, (int)($stats['availableRooms'] ?? 0));
+$maintenanceRooms    = max(0, (int)($stats['maintenanceRooms'] ?? 0));
+$occupiedRooms       = max(0, min($totalRooms, (int)($stats['occupiedRooms'] ?? ($totalRooms - $availableRooms - $maintenanceRooms))));
 ?>
 
 <div class="page-header mb-4">
@@ -60,9 +64,9 @@ $pendingPayments     = $pendingPayments     ?? [];
       </div>
       <div class="stat-label">Available Rooms</div>
     </div>
-    <div class="stat-value"><?= $stats['availableRooms'] ?? 0 ?></div>
+    <div class="stat-value"><?= $availableRooms ?></div>
     <div class="stat-footer">
-      of <span><?= $stats['totalRooms'] ?? 0 ?></span> total rooms
+      of <span><?= $totalRooms ?></span> total rooms
     </div>
   </div>
 
@@ -98,35 +102,25 @@ $pendingPayments     = $pendingPayments     ?? [];
       </div>
     </div>
     <!-- Text-Based Alternative: Shown on Mobile, Hidden on Desktop -->
-    <div class="block md:hidden" style="margin-top: 6px;">
+    <div class="dashboard-progress-fallback md:hidden" style="margin-top: 6px;">
       <!-- Available Rooms -->
       <div style="margin-bottom: 6px;">
         <div class="flex justify-between items-center text-xs mb-1" style="margin-bottom: 3px;">
           <span class="font-bold text-gray-600 flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:var(--color-success);"></span> Available</span>
-          <span class="font-black text-gray-900"><?= $stats['availableRooms'] ?? 0 ?> / <?= $stats['totalRooms'] ?? 0 ?> Rooms</span>
+          <span class="font-black text-gray-900"><?= $availableRooms ?> / <?= $totalRooms ?> Rooms</span>
         </div>
         <div class="progress-track">
-          <div class="progress-fill" style="background:var(--color-success); width: <?= $stats['totalRooms'] > 0 ? (($stats['availableRooms'] ?? 0) / $stats['totalRooms']) * 100 : 0 ?>%"></div>
+          <div class="progress-fill" style="background:var(--color-success); width: <?= $totalRooms > 0 ? ($availableRooms / $totalRooms) * 100 : 0 ?>%"></div>
         </div>
       </div>
       <!-- Occupied Rooms -->
-      <div style="margin-bottom: 6px;">
-        <div class="flex justify-between items-center text-xs mb-1" style="margin-bottom: 3px;">
-          <span class="font-bold text-gray-600 flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:var(--color-brand);"></span> Occupied</span>
-          <span class="font-black text-gray-900"><?= (($stats['totalRooms'] ?? 0) - ($stats['availableRooms'] ?? 0) - ($stats['maintenanceRooms'] ?? 0)) ?> / <?= $stats['totalRooms'] ?? 0 ?> Rooms</span>
-        </div>
-        <div class="progress-track">
-          <div class="progress-fill" style="background:var(--color-brand); width: <?= $stats['totalRooms'] > 0 ? ((($stats['totalRooms'] ?? 0) - ($stats['availableRooms'] ?? 0) - ($stats['maintenanceRooms'] ?? 0)) / $stats['totalRooms']) * 100 : 0 ?>%"></div>
-        </div>
-      </div>
-      <!-- Maintenance Rooms -->
       <div>
         <div class="flex justify-between items-center text-xs mb-1" style="margin-bottom: 3px;">
-          <span class="font-bold text-gray-600 flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:var(--color-danger);"></span> Maintenance</span>
-          <span class="font-black text-gray-900"><?= $stats['maintenanceRooms'] ?? 0 ?> / <?= $stats['totalRooms'] ?? 0 ?> Rooms</span>
+          <span class="font-bold text-gray-600 flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:var(--color-brand);"></span> Occupied</span>
+          <span class="font-black text-gray-900"><?= $occupiedRooms ?> / <?= $totalRooms ?> Rooms</span>
         </div>
         <div class="progress-track">
-          <div class="progress-fill" style="background:var(--color-danger); width: <?= $stats['totalRooms'] > 0 ? (($stats['maintenanceRooms'] ?? 0) / $stats['totalRooms']) * 100 : 0 ?>%"></div>
+          <div class="progress-fill" style="background:var(--color-brand); width: <?= $totalRooms > 0 ? ($occupiedRooms / $totalRooms) * 100 : 0 ?>%"></div>
         </div>
       </div>
     </div>
@@ -148,9 +142,9 @@ $pendingPayments     = $pendingPayments     ?? [];
     </div>
     <!-- Text-Based Alternative: Shown on Mobile, Hidden on Desktop -->
     <?php
-      $totalTenants = ($stats['activeCount'] ?? 0) + ($stats['pendingCount'] ?? 0) + ($stats['waitingCount'] ?? 0) + ($stats['rejectedCount'] ?? 0);
+      $totalTenants = ($stats['activeCount'] ?? 0) + ($stats['totalPendingCount'] ?? 0) + ($stats['waitingCount'] ?? 0) + ($stats['rejectedCount'] ?? 0);
     ?>
-    <div class="block md:hidden" style="margin-top: 6px;">
+    <div class="dashboard-progress-fallback md:hidden" style="margin-top: 6px;">
       <!-- Active Tenants -->
       <div style="margin-bottom: 6px;">
         <div class="flex justify-between items-center text-xs mb-1" style="margin-bottom: 3px;">
@@ -165,10 +159,10 @@ $pendingPayments     = $pendingPayments     ?? [];
       <div style="margin-bottom: 6px;">
         <div class="flex justify-between items-center text-xs mb-1" style="margin-bottom: 3px;">
           <span class="font-bold text-gray-600 flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-warning-500"></span> Pending</span>
-          <span class="font-black text-gray-900"><?= $stats['pendingCount'] ?? 0 ?> / <?= $totalTenants ?> Tenants</span>
+          <span class="font-black text-gray-900"><?= $stats['totalPendingCount'] ?? 0 ?> / <?= $totalTenants ?> Tenants</span>
         </div>
         <div class="w-full bg-gray-100 rounded-full overflow-hidden" style="height: 8px;">
-          <div class="bg-warning-500 h-full rounded-full" style="width: <?= $totalTenants > 0 ? (($stats['pendingCount'] ?? 0) / $totalTenants) * 100 : 0 ?>%"></div>
+          <div class="bg-warning-500 h-full rounded-full" style="width: <?= $totalTenants > 0 ? (($stats['totalPendingCount'] ?? 0) / $totalTenants) * 100 : 0 ?>%"></div>
         </div>
       </div>
       <!-- Waiting List Tenants -->
@@ -332,53 +326,114 @@ $pendingPayments     = $pendingPayments     ?? [];
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  // Debug: Log chart data to console
+  console.log('Room Chart Data:', {
+    available: <?= $availableRooms ?>,
+    occupied: <?= $occupiedRooms ?>,
+    total: <?= $totalRooms ?>
+  });
+  console.log('Tenant Chart Data:', {
+    active: <?= (int)($stats['activeCount'] ?? 0) ?>,
+    pending: <?= (int)($stats['totalPendingCount'] ?? 0) ?>,
+    waiting: <?= (int)($stats['waitingCount'] ?? 0) ?>,
+    rejected: <?= (int)($stats['rejectedCount'] ?? 0) ?>
+  });
+  console.log('Chart.js loaded:', typeof Chart !== 'undefined');
+
+  if (typeof Chart === 'undefined') {
+    console.error('Chart.js library not loaded!');
+    document.querySelectorAll('.chart-wrap').forEach(function(el) { el.style.display = 'none'; });
+    document.querySelectorAll('.dashboard-progress-fallback').forEach(function(el) { el.classList.remove('md:hidden'); });
+    return;
+  }
+
   var chartDefaults = {
-    plugins: { legend: { position: 'bottom', labels: { padding: 12, font: { size: 11 }, boxWidth: 10 } } },
+    plugins: { 
+      legend: { 
+        position: 'bottom', 
+        labels: { 
+          padding: 12, 
+          font: { size: 11 }, 
+          boxWidth: 10 
+        } 
+      },
+      tooltip: {
+        enabled: true,
+        callbacks: {
+          label: function(context) {
+            var label = context.label || '';
+            var value = context.parsed || 0;
+            var total = context.dataset.data.reduce((a, b) => a + b, 0);
+            var percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+            return label + ': ' + value + ' (' + percentage + '%)';
+          }
+        }
+      }
+    },
     responsive: true,
     maintainAspectRatio: false,
   };
 
   var roomCtx = document.getElementById('roomChart');
   if (roomCtx) {
-    new Chart(roomCtx, {
-      type: 'doughnut',
-      data: {
-        labels: ['Available', 'Occupied', 'Maintenance'],
-        datasets: [{
-          data: [
-            <?= (int)($stats['availableRooms'] ?? 0) ?>,
-            <?= (int)(($stats['totalRooms'] ?? 0) - ($stats['availableRooms'] ?? 0) - ($stats['maintenanceRooms'] ?? 0)) ?>,
-            <?= (int)($stats['maintenanceRooms'] ?? 0) ?>
-          ],
-          backgroundColor: ['#047857','#2563eb','#be123c'],
-          borderWidth: 0,
-          hoverOffset: 4,
-        }]
-      },
-      options: { ...chartDefaults, cutout: '68%' }
-    });
+    var roomData = [
+      <?= $availableRooms ?>,
+      <?= $occupiedRooms ?>
+    ];
+    var roomTotal = roomData.reduce((a, b) => a + b, 0);
+    
+    console.log('Creating room chart with total:', roomTotal);
+    
+    if (roomTotal === 0) {
+      // Show empty state message
+      roomCtx.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--gray-400);font-size:0.85rem;text-align:center;padding:20px;">No room data available yet.<br>Add rooms to see statistics.</div>';
+    } else {
+      new Chart(roomCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Available', 'Occupied'],
+          datasets: [{
+            data: roomData,
+            backgroundColor: ['#047857','#2563eb'],
+            borderWidth: 0,
+            hoverOffset: 4,
+          }]
+        },
+        options: { ...chartDefaults, cutout: '68%' }
+      });
+    }
   }
 
   var tenantCtx = document.getElementById('tenantChart');
   if (tenantCtx) {
-    new Chart(tenantCtx, {
-      type: 'doughnut',
-      data: {
-        labels: ['Active', 'Pending', 'Waiting List', 'Rejected'],
-        datasets: [{
-          data: [
-            <?= (int)($stats['activeCount']   ?? 0) ?>,
-            <?= (int)($stats['pendingCount']  ?? 0) ?>,
-            <?= (int)($stats['waitingCount']  ?? 0) ?>,
-            <?= (int)($stats['rejectedCount'] ?? 0) ?>
-          ],
-          backgroundColor: ['#047857','#b45309','#2563eb','#be123c'],
-          borderWidth: 0,
-          hoverOffset: 4,
-        }]
-      },
-      options: { ...chartDefaults, cutout: '68%' }
-    });
+    var tenantData = [
+      <?= (int)($stats['activeCount']   ?? 0) ?>,
+      <?= (int)($stats['totalPendingCount']  ?? 0) ?>,
+      <?= (int)($stats['waitingCount']  ?? 0) ?>,
+      <?= (int)($stats['rejectedCount'] ?? 0) ?>
+    ];
+    var tenantTotal = tenantData.reduce((a, b) => a + b, 0);
+    
+    console.log('Creating tenant chart with total:', tenantTotal);
+    
+    if (tenantTotal === 0) {
+      // Show empty state message
+      tenantCtx.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--gray-400);font-size:0.85rem;text-align:center;padding:20px;">No tenant data available yet.<br>Add tenants to see statistics.</div>';
+    } else {
+      new Chart(tenantCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Active', 'Pending', 'Waiting List', 'Rejected'],
+          datasets: [{
+            data: tenantData,
+            backgroundColor: ['#047857','#f59e0b','#2563eb','#be123c'],
+            borderWidth: 0,
+            hoverOffset: 4,
+          }]
+        },
+        options: { ...chartDefaults, cutout: '68%' }
+      });
+    }
   }
 });
 </script>

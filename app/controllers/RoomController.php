@@ -100,6 +100,9 @@ class RoomController extends Controller
         if ($data['max_occupants'] < 1) { $this->flash('error', 'Max occupants must be at least 1.'); $this->redirect('landlord/rooms'); }
         if ($data['monthly_rent'] <= 0) { $this->flash('error', 'Monthly rent must be greater than zero.'); $this->redirect('landlord/rooms'); }
         $this->roomModel->update($data, ['id' => $id]);
+        require_once APP_PATH . '/services/CompatibilityService.php';
+        $compatibilityService = new CompatibilityService();
+        $compatibilityService->refreshRoomCache($id);
         $this->auditLogModel->log(
             $_SESSION['user_id'], 'room_updated', 'room', $id,
             $room, $data, "Room {$room['room_number']} updated"
@@ -150,4 +153,3 @@ class RoomController extends Controller
     }
 }
 ?>
-

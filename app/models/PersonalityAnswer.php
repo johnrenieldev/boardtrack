@@ -117,6 +117,10 @@ class PersonalityAnswer extends Model
      */
     public function saveAnswer(int $tenantId, int $questionId, int $answerValue): int
     {
+        if ($answerValue < 1 || $answerValue > 5) {
+            throw new InvalidArgumentException('Personality answer values must be between 1 and 5.');
+        }
+
         // Check if answer exists
         $sql = "SELECT id FROM {$this->table} 
                 WHERE tenant_id = :tenant_id AND question_id = :question_id 
@@ -148,21 +152,34 @@ class PersonalityAnswer extends Model
                        pq.category,
                        pq.question_text,
                        pq.weight,
-                       CASE pa.answer_value
-                           WHEN 0 THEN 'Strongly Disagree'
-                           WHEN 1 THEN 'Disagree'
-                           WHEN 2 THEN 'Neutral'
-                           WHEN 3 THEN 'Agree'
-                           WHEN 4 THEN 'Strongly Agree'
-                           ELSE pa.answer_value
-                       END AS answer_text
+                       pq.display_order
                 FROM {$this->table} pa
                 JOIN personality_questions pq ON pa.question_id = pq.id
                 WHERE pa.tenant_id = :tenant_id
                 ORDER BY pq.display_order ASC";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([':tenant_id' => $tenantId]);
-        return $stmt->fetchAll();
+        $answers = $stmt->fetchAll();
+        $optionsMap = $this->getQuestionOptions();
+
+        foreach ($answers as &$answer) {
+            $displayOrder = (int) ($answer['display_order'] ?? 0);
+            $value = (int) ($answer['answer_value'] ?? 0);
+            $answer['answer_text'] = $optionsMap[$displayOrder][$value - 1] ?? (string) $value;
+        }
+
+        return $answers;
+    }
+
+    /**
+     * Active question IDs used for strict form validation.
+     */
+    public function getActiveQuestionIds(): array
+    {
+        $sql = "SELECT id FROM personality_questions WHERE is_active = 1 ORDER BY display_order ASC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
     }
 
     /**
@@ -209,4 +226,3 @@ class PersonalityAnswer extends Model
         return $total > 0 && ($result['count'] / $total) > 0.7;
     }
 }
-

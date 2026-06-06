@@ -118,7 +118,7 @@ unset($_SESSION['form_old']);
         <!-- Gender Selection -->
         <div class="mb-4">
           <label class="auth-label">Gender <span class="text-red-500">*</span></label>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <label class="flex items-center gap-3 border border-gray-300 rounded-md p-3 cursor-pointer hover:border-brand-500 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 transition-colors">
               <input type="radio" name="gender" value="male" required class="accent-brand-600"
                      <?= ($old['gender'] ?? '') === 'male' ? 'checked' : '' ?>>
@@ -133,6 +133,14 @@ unset($_SESSION['form_old']);
               <div>
                 <div class="text-sm font-semibold text-gray-900">Female</div>
                 <div class="text-xs text-gray-400">Female tenant</div>
+              </div>
+            </label>
+            <label class="flex items-center gap-3 border border-gray-300 rounded-md p-3 cursor-pointer hover:border-brand-500 has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50 transition-colors">
+              <input type="radio" name="gender" value="prefer_not_to_say" class="accent-brand-600"
+                     <?= ($old['gender'] ?? '') === 'prefer_not_to_say' ? 'checked' : '' ?>>
+              <div>
+                <div class="text-sm font-semibold text-gray-900">Prefer not to say</div>
+                <div class="text-xs text-gray-400">Not specified</div>
               </div>
             </label>
           </div>

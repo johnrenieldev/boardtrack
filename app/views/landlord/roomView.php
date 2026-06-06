@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 
     <!-- Occupants Table -->
-    <div class="card">
+    <div class="card" style="padding: 0;">
       <div class="p-6 border-b border-gray-100 bg-white flex justify-between items-center">
         <h3 class="font-bold text-gray-900 flex items-center gap-2">
           <i class="fa-solid fa-users text-brand-600"></i> Current Occupants
@@ -98,33 +98,33 @@ document.addEventListener('DOMContentLoaded', function() {
           <?= $room['actual_occupants'] ?> Registered
         </span>
       </div>
-      <div class="overflow-x-auto">
+      <div class="overflow-x-auto" style="width: 100%; padding: 0;">
         <?php if (empty($room['occupants'])): ?>
           <div class="p-12 text-center text-gray-400 italic">
             No occupants currently assigned to this room.
           </div>
         <?php else: ?>
-          <table class="bt-table w-full">
+          <table class="bt-table" style="width: 100%; min-width: 100%; margin: 0;">
             <thead>
               <tr>
                 <th class="text-left px-6 py-4 bg-gray-50 text-xs font-bold uppercase tracking-wider text-gray-500">Tenant Name</th>
-                <th class="text-left px-6 py-4 bg-gray-50 text-xs font-bold uppercase tracking-wider text-gray-500">Status</th>
-                <th class="text-left px-6 py-4 bg-gray-50 text-xs font-bold uppercase tracking-wider text-gray-500">Joined On</th>
-                <th class="text-left px-6 py-4 bg-gray-50 text-xs font-bold uppercase tracking-wider text-gray-500">Actions</th>
+                <th class="text-center px-6 py-4 bg-gray-50 text-xs font-bold uppercase tracking-wider text-gray-500">Status</th>
+                <th class="text-center px-6 py-4 bg-gray-50 text-xs font-bold uppercase tracking-wider text-gray-500">Joined On</th>
+                <th class="text-center px-6 py-4 bg-gray-50 text-xs font-bold uppercase tracking-wider text-gray-500">Actions</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
               <?php foreach ($room['occupants'] as $occupant): ?>
                 <tr class="hover:bg-gray-50 transition-colors">
-                  <td class="px-6 py-4 font-bold text-gray-900 text-sm"><?= htmlspecialchars($occupant['name']) ?></td>
-                  <td class="px-6 py-4">
+                  <td class="px-6 py-4 font-bold text-gray-900 text-sm text-left" data-label="Tenant Name"><?= htmlspecialchars($occupant['name']) ?></td>
+                  <td class="px-6 py-4 text-center" data-label="Status">
                     <span class="inline-flex px-2 py-0.5 rounded-full text-[0.6rem] font-black uppercase tracking-widest bg-success-50 text-success-600 border border-success-200">
-                      <?= htmlspecialchars($occupant['user_status'] ?? 'ACTIVE') ?>
+                      <?= htmlspecialchars($occupant['user_status'] ?? 'APPROVED') ?>
                     </span>
                   </td>
-                  <td class="px-6 py-4 text-xs text-gray-500 font-medium"><?= date('M j, Y', strtotime($occupant['joined_at'] ?? $occupant['created_at'])) ?></td>
-                  <td class="px-6 py-4">
-                    <a href="<?= Router::url('landlord/view-tenant/' . $occupant['id']) ?>" class="btn btn-secondary btn-sm flex items-center gap-2 w-fit">
+                  <td class="px-6 py-4 text-xs text-gray-500 font-medium text-center" data-label="Joined On"><?= date('M j, Y', strtotime($occupant['joined_at'] ?? $occupant['created_at'])) ?></td>
+                  <td class="px-6 py-4 text-center" data-label="Actions">
+                    <a href="<?= Router::url('landlord/view-tenant/' . $occupant['id']) ?>" class="btn btn-secondary btn-sm inline-flex items-center gap-2">
                       <i class="fa-solid fa-user-circle text-[0.7rem]"></i> Profile
                     </a>
                   </td>
@@ -196,6 +196,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <option value="any" <?= ($room['allowed_gender'] ?? 'any') === 'any' ? 'selected' : '' ?>>Any / Mixed</option>
             <option value="male" <?= ($room['allowed_gender'] ?? '') === 'male' ? 'selected' : '' ?>>Male only</option>
             <option value="female" <?= ($room['allowed_gender'] ?? '') === 'female' ? 'selected' : '' ?>>Female only</option>
+            <option value="prefer_not_to_say" <?= ($room['allowed_gender'] ?? '') === 'prefer_not_to_say' ? 'selected' : '' ?>>Prefer not to say only</option>
           </select>
         </div>
         <div class="form-group">
@@ -256,3 +257,179 @@ document.addEventListener('click', function(e) {
   }
 });
 </script>
+
+<style>
+/* Make table with rounded corners */
+.bt-table {
+  width: 100% !important;
+  min-width: 100% !important;
+  table-layout: fixed !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+}
+
+/* Round the card corners */
+.card {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+}
+
+/* Ensure container doesn't restrict width */
+.overflow-x-auto {
+  overflow-x: hidden !important;
+  width: 100% !important;
+  border-radius: 0 0 8px 8px !important;
+}
+
+/* Distribute columns to fill full width */
+.bt-table th:nth-child(1),
+.bt-table td:nth-child(1) {
+  width: 35% !important;
+}
+
+.bt-table th:nth-child(2),
+.bt-table td:nth-child(2) {
+  width: 20% !important;
+}
+
+.bt-table th:nth-child(3),
+.bt-table td:nth-child(3) {
+  width: 25% !important;
+}
+
+.bt-table th:nth-child(4),
+.bt-table td:nth-child(4) {
+  width: 20% !important;
+}
+
+/* Normal padding and font sizes */
+.bt-table th {
+  padding: 12px 16px !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+}
+
+.bt-table td {
+  padding: 12px 16px !important;
+  font-size: 0.875rem !important;
+}
+
+/* Tenant name styling */
+.bt-table td:first-child {
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+}
+
+/* Status badge normal size */
+.bt-table td:nth-child(2) span {
+  font-size: 0.6rem !important;
+  padding: 4px 8px !important;
+}
+
+/* Joined date normal size */
+.bt-table td:nth-child(3) {
+  font-size: 0.75rem !important;
+}
+
+/* Profile button normal size */
+.bt-table td:nth-child(4) .btn {
+  font-size: 0.75rem !important;
+  padding: 6px 12px !important;
+}
+
+.bt-table td:nth-child(4) .btn i {
+  font-size: 0.7rem !important;
+}
+
+/* Mobile responsive */
+@media (max-width: 767px) {
+  /* Hide table headers */
+  .bt-table thead {
+    display: none !important;
+  }
+  
+  /* Make each row a card */
+  .bt-table tbody tr {
+    display: block !important;
+    margin-bottom: 16px !important;
+    border: 1px solid var(--gray-200) !important;
+    border-radius: 8px !important;
+    background: white !important;
+    padding: 0 !important;
+  }
+  
+  /* First cell (tenant name) - full width grey background */
+  .bt-table td:first-child {
+    display: block !important;
+    width: 100% !important;
+    padding: 14px 16px !important;
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    border-bottom: 1px solid var(--gray-100) !important;
+    text-align: left !important;
+    background: var(--gray-50) !important;
+    margin: 0 !important;
+  }
+  
+  /* Other cells - label on left, value on right */
+  .bt-table td:not(:first-child) {
+    display: flex !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    padding: 10px 14px !important;
+    border: none !important;
+    gap: 12px !important;
+  }
+  
+  /* Add labels before content */
+  .bt-table td:not(:first-child)::before {
+    content: attr(data-label) !important;
+    font-weight: 600 !important;
+    color: var(--gray-500) !important;
+    font-size: 0.7rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    width: 85px !important;
+    min-width: 85px !important;
+    flex-shrink: 0 !important;
+  }
+  
+  /* Center the profile button properly - use flexbox */
+  .bt-table td:nth-child(4) {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    padding: 14px 16px !important;
+    text-align: center !important;
+    gap: 0 !important;
+    width: 100% !important;
+  }
+  
+  .bt-table td:nth-child(4)::before {
+    display: none !important;
+  }
+  
+  .bt-table td:nth-child(4) a {
+    display: inline-flex !important;
+    margin: 0 !important;
+  }
+  
+  .bt-table td:nth-child(4) .btn {
+    width: auto !important;
+    display: inline-flex !important;
+  }
+  
+  /* Make status badge and date align properly */
+  .bt-table td:nth-child(2),
+  .bt-table td:nth-child(3) {
+    text-align: left !important;
+  }
+  
+  /* Make status badge wrap tightly around text */
+  .bt-table td:nth-child(2) span {
+    display: inline-flex !important;
+    width: auto !important;
+    max-width: fit-content !important;
+  }
+}
+</style>

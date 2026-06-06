@@ -57,9 +57,6 @@ $statistics    = $statistics    ?? [];
       <i class="fa-solid fa-bullhorn"></i>
       <h3>No Announcements Yet</h3>
       <p>Create your first announcement to notify all tenants.</p>
-      <button type="button" class="btn btn-primary" style="margin-top:12px;" onclick="openModal('createModal')">
-        <i class="fa-solid fa-plus"></i> Create Announcement
-      </button>
     </div>
   <?php else: ?>
     <div class="table-wrap">
@@ -244,3 +241,169 @@ document.addEventListener('click', function(e) {
   }
 });
 </script>
+
+<style>
+/* Center column headers and data */
+.bt-table th {
+  text-align: center !important;
+}
+
+.bt-table td {
+  text-align: center !important;
+}
+
+/* Keep first column (Title) left-aligned */
+.bt-table th:first-child,
+.bt-table td:first-child {
+  text-align: left !important;
+}
+
+/* Mobile responsive styles for announcements table */
+@media (max-width: 767px) {
+  .card {
+    max-height: calc(100vh - 280px) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .table-wrap {
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  .bt-table {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    table-layout: auto !important;
+  }
+  
+  .bt-table tbody tr {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-bottom: 16px !important;
+  }
+  
+  .bt-table tbody tr:last-child {
+    margin-bottom: 20px !important;
+  }
+  
+  .bt-table th,
+  .bt-table td {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  
+  /* Title - full width with grey background */
+  .bt-table td:first-child {
+    padding: 14px 16px !important;
+    background: var(--gray-100) !important;
+    text-align: left !important;
+  }
+  
+  /* Other fields - label on left, value on right */
+  .bt-table td[data-label]:not(:first-child)::before {
+    width: 110px !important;
+    min-width: 110px !important;
+    flex-shrink: 0 !important;
+    padding-right: 0 !important;
+  }
+  
+  .bt-table td[data-label]:not(:first-child) {
+    display: flex !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    text-align: left !important;
+    gap: 12px !important;
+    padding: 10px 14px !important;
+  }
+  
+  /* Priority badge - wrap tightly */
+  .bt-table td[data-label="Priority"] .badge {
+    display: inline-flex !important;
+    width: auto !important;
+    max-width: fit-content !important;
+  }
+  
+  /* Status badge - wrap tightly */
+  .bt-table td[data-label="Status"] .badge {
+    display: inline-flex !important;
+    width: auto !important;
+    max-width: fit-content !important;
+  }
+  
+  /* Actions - center the buttons */
+  .bt-table td[data-label="Actions"] {
+    justify-content: center !important;
+    text-align: center !important;
+  }
+  
+  .bt-table td[data-label="Actions"]::before {
+    display: none !important;
+  }
+  
+  .bt-table td[data-label="Actions"] > div {
+    width: 100% !important;
+    justify-content: center !important;
+    gap: 8px !important;
+  }
+  
+  /* Make action buttons equal width on mobile */
+  .bt-table td[data-label="Actions"] > div > button,
+  .bt-table td[data-label="Actions"] > div > form {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+  }
+  
+  .bt-table td[data-label="Actions"] > div > button,
+  .bt-table td[data-label="Actions"] > div > form > button {
+    width: 100% !important;
+    margin: 0 !important;
+  }
+  
+  .bt-table td[data-label="Actions"] > div > form {
+    display: flex !important;
+    width: 100% !important;
+  }
+  
+  /* Prevent text wrapping issues */
+  .bt-table,
+  .bt-table th,
+  .bt-table td,
+  .bt-table th *,
+  .bt-table td * {
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+    word-wrap: normal !important;
+    white-space: normal !important;
+  }
+  
+  .bt-table td[data-label]::before {
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+  }
+  
+  /* Custom scrollbar for card */
+  .card::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .card::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+  }
+  
+  .card::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+  }
+  
+  .card::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+}
+</style>

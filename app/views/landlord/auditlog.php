@@ -20,7 +20,7 @@ $pagination = $pagination ?? [];
 
 <!-- Filters -->
 <div class="card" style="margin-bottom:16px;padding:14px 20px;">
-  <form method="GET" action="<?= Router::url('landlord/auditLog') ?>" class="filter-bar" style="margin-bottom:0;">
+  <form method="GET" action="index.php" class="filter-bar" style="margin-bottom:0;">
     <input type="hidden" name="url" value="landlord/auditLog">
     <select name="action" class="form-select">
       <option value="">All Actions</option>

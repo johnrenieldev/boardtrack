@@ -22,7 +22,7 @@ $activeTenants = $activeTenants ?? [];
 </div>
 
 <!-- Stats -->
-<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+<div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
   <div class="card p-4">
     <div class="text-[0.65rem] font-black text-gray-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
       <i class="fa-solid fa-file-invoice text-brand-500"></i> Total Bills
@@ -51,18 +51,28 @@ $activeTenants = $activeTenants ?? [];
     <div class="text-2xl font-black text-gray-900 leading-none"><?= $statistics['overdue'] ?? 0 ?></div>
     <div class="text-[0.6rem] font-bold text-gray-400 mt-2 uppercase tracking-tighter">₱<?= number_format($statistics['total_unpaid'] ?? 0, 2) ?> total unpaid</div>
   </div>
+
+  <div class="card p-4 border-blue-200">
+    <div class="text-[0.65rem] font-black text-blue-500 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+      <i class="fa-solid fa-hourglass-half text-blue-500"></i> Awaiting Review
+    </div>
+    <div class="text-2xl font-black text-gray-900 leading-none"><?= $statistics['pending_review'] ?? 0 ?></div>
+    <div class="text-[0.6rem] font-bold text-gray-400 mt-2 uppercase tracking-tighter">Payment submitted by tenant</div>
+  </div>
 </div>
 
 <!-- Filters -->
 <div class="card mb-4 p-4">
-  <form method="GET" action="<?= Router::url('landlord/bills') ?>" class="filter-bar" style="margin-bottom:0;">
+  <form method="GET" action="index.php" class="filter-bar" style="margin-bottom:0;">
     <input type="hidden" name="url" value="landlord/bills">
+    <input type="text" name="search" class="form-input" placeholder="Search tenant or bill name..." value="<?= htmlspecialchars($filters['search'] ?? '') ?>" style="flex: 1; min-width: 200px;">
     <select name="status" class="form-select">
       <option value="">All Statuses</option>
       <option value="unpaid" <?= ($filters['status'] ?? '') === 'unpaid' ? 'selected' : '' ?>>Unpaid</option>
+      <option value="partial" <?= ($filters['status'] ?? '') === 'partial' ? 'selected' : '' ?>>Partially Paid</option>
+      <option value="pending_verification" <?= ($filters['status'] ?? '') === 'pending_verification' ? 'selected' : '' ?>>Pending Verification</option>
       <option value="paid" <?= ($filters['status'] ?? '') === 'paid' ? 'selected' : '' ?>>Paid</option>
       <option value="overdue" <?= ($filters['status'] ?? '') === 'overdue' ? 'selected' : '' ?>>Overdue</option>
-      <option value="pending_verification" <?= ($filters['status'] ?? '') === 'pending_verification' ? 'selected' : '' ?>>Verification Pending</option>
     </select>
     <button type="submit" class="btn btn-primary btn-sm">Filter</button>
     <a href="<?= Router::url('landlord/bills') ?>" class="btn btn-secondary btn-sm">Clear</a>
@@ -78,7 +88,7 @@ $activeTenants = $activeTenants ?? [];
       <p class="text-gray-500">No bills match the current filters or have been created yet.</p>
     </div>
   <?php else: ?>
-    <div class="overflow-x-auto">
+    <div class="table-wrap">
       <table class="bt-table w-full">
         <thead>
           <tr>
@@ -116,13 +126,18 @@ $activeTenants = $activeTenants ?? [];
                     $bBadge = match($bill['status']) {
                       'paid' => 'bg-success-50 text-success-600 border-success-200',
                       'unpaid' => 'bg-gray-50 text-gray-600 border-gray-200',
+                      'partial' => 'bg-warning-50 text-warning-600 border-warning-200',
                       'overdue' => 'bg-danger-50 text-danger-600 border-danger-200',
-                      'pending_verification' => 'bg-warning-50 text-warning-600 border-warning-200',
+                      'pending_verification' => 'bg-blue-50 text-blue-700 border-blue-300',
                       default => 'bg-gray-50 text-gray-600 border-gray-200'
+                    };
+                    $bLabel = match($bill['status']) {
+                      'pending_verification' => 'Payment Submitted — Review Needed',
+                      default => str_replace('_', ' ', ucfirst($bill['status']))
                     };
                   ?>
                   <span class="inline-flex px-2.5 py-1 rounded-full text-[0.7rem] font-bold uppercase tracking-wider border <?= $bBadge ?>">
-                    <?= str_replace('_', ' ', ucfirst($bill['status'])) ?>
+                    <?= $bLabel ?>
                   </span>
                 </div>
               </td>
@@ -183,6 +198,9 @@ $activeTenants = $activeTenants ?? [];
           <div class="form-group">
             <label class="form-label">Amount (₱) <span class="req">*</span></label>
             <input type="number" name="amount" id="edit_amount" class="form-input" step="0.01" required>
+            <div id="edit_amount_paid_warning" style="display:none;font-size:0.8rem;color:var(--warning-600);padding:8px;background:var(--warning-50);border-radius:var(--radius);margin-top:6px;">
+              <i class="fa-solid fa-info-circle"></i> <span id="edit_amount_paid_text"></span> has already been approved for this bill. New amount must be ≥ that value.
+            </div>
           </div>
           <div class="form-group">
             <label class="form-label">Due Date <span class="req">*</span></label>
@@ -193,9 +211,10 @@ $activeTenants = $activeTenants ?? [];
           <label class="form-label">Status</label>
           <select name="status" id="edit_status" class="form-select">
             <option value="unpaid">Unpaid</option>
+            <option value="partial">Partially Paid</option>
+            <!-- pending_verification is set automatically by the system when a tenant submits payment; not available for manual override -->
             <option value="paid">Paid</option>
             <option value="overdue">Overdue</option>
-            <option value="pending_verification">Pending Verification</option>
             <option value="cancelled">Cancelled</option>
           </select>
         </div>
@@ -255,7 +274,7 @@ $activeTenants = $activeTenants ?? [];
         <div id="billTargetTenant" style="display:none;">
           <div class="form-group">
             <label class="form-label">Tenant <span class="req">*</span></label>
-            <select name="tenant_id" class="form-select" id="billTenantSelect" required>
+            <select name="tenant_id" class="form-select" id="billTenantSelect" required disabled>
               <option value="">— Select Tenant —</option>
               <?php foreach ($activeTenants as $tenant): ?>
                 <option value="<?= $tenant['id'] ?>">
@@ -298,11 +317,13 @@ $activeTenants = $activeTenants ?? [];
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Amount (₱) <span class="req">*</span></label>
-            <input type="number" name="amount" id="billAmount" class="form-input" step="0.01" required placeholder="5000.00">
+            <input type="number" name="amount" id="billAmount" class="form-input" step="0.01" min="0.01" max="5000" required placeholder="5000.00">
+            <span class="form-help">Maximum: ₱5,000.00</span>
           </div>
           <div class="form-group">
             <label class="form-label">Due Date <span class="req">*</span></label>
-            <input type="date" name="due_date" class="form-input" required>
+            <input type="date" name="due_date" class="form-input" required min="<?= date('Y-m-d') ?>">
+            <span class="form-help">Cannot be in the past</span>
           </div>
         </div>
         <div class="form-group" style="margin-bottom:0;">
@@ -338,6 +359,23 @@ function openEditBillModal(bill) {
   document.getElementById('edit_due_date').value = bill.due_date;
   document.getElementById('edit_status').value = bill.status;
   document.getElementById('edit_notes').value = bill.notes || '';
+  
+  // Show warning if bill has approved payments
+  var amountPaid = parseFloat(bill.amount_paid || 0);
+  var warningDiv = document.getElementById('edit_amount_paid_warning');
+  var warningText = document.getElementById('edit_amount_paid_text');
+  
+  if (amountPaid > 0) {
+    warningText.textContent = '₱' + amountPaid.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    warningDiv.style.display = 'block';
+    
+    // Set minimum value on amount input
+    document.getElementById('edit_amount').min = amountPaid;
+  } else {
+    warningDiv.style.display = 'none';
+    document.getElementById('edit_amount').removeAttribute('min');
+  }
+  
   openModal('editBillModal');
 }
 
@@ -351,12 +389,18 @@ function toggleBillingType(type) {
     roomDiv.style.display = 'block';
     tenantDiv.style.display = 'none';
     roomSelect.required = true;
+    roomSelect.disabled = false;
     tenantSelect.required = false;
+    tenantSelect.disabled = true; // Disable when hidden to prevent validation
+    tenantSelect.value = ''; // Clear tenant selection
   } else {
     roomDiv.style.display = 'none';
     tenantDiv.style.display = 'block';
     roomSelect.required = false;
+    roomSelect.disabled = true; // Disable when hidden to prevent validation
     tenantSelect.required = true;
+    tenantSelect.disabled = false;
+    roomSelect.value = ''; // Clear room selection
   }
 }
 
@@ -366,6 +410,49 @@ function prefillRent(select) {
   var amountEl = document.getElementById('billAmount');
   if (rent && amountEl && !amountEl.value) amountEl.value = rent;
 }
+
+function confirmDeleteBill(billId) {
+  if (!billId) {
+    btToast('Invalid bill ID', 'error');
+    return;
+  }
+  
+  btConfirm({
+    title: 'Delete Bill',
+    message: 'Are you sure you want to delete this bill? This action cannot be undone.\n\nNote: If this bill has payments, they will also be deleted.',
+    confirmText: 'Yes, Delete',
+    cancelText: 'Cancel',
+    type: 'danger',
+    icon: 'fa-trash-can'
+  }).then(confirmed => {
+    if (confirmed) {
+      // Create a form and submit it
+      var form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '<?= Router::url('landlord/delete-bill') ?>';
+      
+      var input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'bill_id';
+      input.value = billId;
+      form.appendChild(input);
+      
+      // Add CSRF token if available
+      var csrfToken = document.querySelector('meta[name="csrf-token"]');
+      if (csrfToken) {
+        var csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrf_token';
+        csrfInput.value = csrfToken.getAttribute('content');
+        form.appendChild(csrfInput);
+      }
+      
+      document.body.appendChild(form);
+      form.submit();
+    }
+  });
+}
+
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     document.querySelectorAll('.modal-overlay').forEach(function(m) { m.style.display = 'none'; });

@@ -33,21 +33,27 @@ class CompatibilityService
      */
     public function calculateCompatibility(int $tenantId, int $roomId, bool $useCache = true): array
     {
-        if ($useCache) {
-            $cached = $this->getCompatibilityFromCache($tenantId, $roomId);
-            if ($cached) return $cached;
+        $tenant = $this->tenantModel->find($tenantId);
+        $room = $this->roomModel->find($roomId);
+        if (!$tenant || !$room) {
+            return $this->formatResponse(0, "Unavailable", "gray", ["Tenant or room data could not be loaded."]);
         }
 
-        // 1. Check if tenant has completed personality
+        // 1. Check if tenant has completed personality before trusting cache.
         if (!$this->personalityModel->isCompleted($tenantId)) {
-            $res = $this->formatResponse(0, "Incomplete Profile", "gray", ["Complete your personality questionnaire for a more accurate match."]);
-            $this->updateCache($tenantId, $roomId, $res);
-            return $res;
+            $this->clearTenantRoomCache($tenantId, $roomId);
+            return $this->formatResponse(0, "Incomplete Profile", "gray", ["Complete the personality questionnaire before comparing room fit."]);
+        }
+
+        if ($useCache) {
+            $cached = $this->getCompatibilityFromCache($tenantId, $roomId);
+            if ($cached && !$this->isIncompleteCacheStatus($cached['status'] ?? '')) {
+                return $cached;
+            }
+            $this->clearTenantRoomCache($tenantId, $roomId);
         }
 
         // 1b. Check gender compatibility
-        $tenant = $this->tenantModel->find($tenantId);
-        $room = $this->roomModel->find($roomId);
         if ($room && $room['allowed_gender'] !== 'any' && $tenant['gender'] !== $room['allowed_gender']) {
             $res = $this->formatResponse(0, "Gender Mismatch", "red", ["This room is reserved for " . $room['allowed_gender'] . "s only."]);
             $this->updateCache($tenantId, $roomId, $res);
@@ -63,9 +69,9 @@ class CompatibilityService
         $stmt->execute([':room_id' => $roomId, ':tenant_id' => $tenantId]);
         $roommates = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
-        // 3. If room is empty, it's a perfect match (no conflicts)
+        // 3. If room is empty, report that honestly instead of inventing a match.
         if (empty($roommates)) {
-            $res = $this->formatResponse(100, "Excellent Match", "green", ["Room is currently empty. You'll have the first pick of space!"]);
+            $res = $this->formatResponse(100, "Empty Room", "blue", ["No current roommates. Compatibility scoring is not needed yet."]);
             $this->updateCache($tenantId, $roomId, $res);
             return $res;
         }
@@ -97,8 +103,8 @@ class CompatibilityService
 
         // 5. If no roommates have profiles, return neutral
         if ($validRoommates === 0) {
-            $res = $this->formatResponse(0, "Incomplete Data", "gray", ["Roommates haven't completed their profiles yet."]);
-            $this->updateCache($tenantId, $roomId, $res);
+            $res = $this->formatResponse(0, "Incomplete Roommate Data", "gray", ["Current roommates have not completed their profiles yet."]);
+            $this->clearTenantRoomCache($tenantId, $roomId);
             return $res;
         }
 
@@ -132,8 +138,8 @@ class CompatibilityService
         return [
             'score' => (float)$cached['compatibility_score'],
             'status' => $cached['compatibility_status'],
-            'color' => $this->getStatusData((float)$cached['compatibility_score'])['color'],
-            'explanation' => json_decode($cached['reasons'] ?? '[]', true),
+            'color' => $this->getColorForStatus($cached['compatibility_status'], (float)$cached['compatibility_score']),
+            'explanation' => json_decode($cached['reasons'] ?? '[]', true) ?: [],
             'roommate_breakdown' => [] // Cache doesn't store breakdown for simplicity
         ];
     }
@@ -163,10 +169,36 @@ class CompatibilityService
     }
 
     /**
+     * Remove all cached room matches for one tenant.
+     */
+    public function clearTenantCache(int $tenantId): void
+    {
+        $stmt = $this->db->prepare("DELETE FROM tenant_compatibility_cache WHERE tenant_id = :tid");
+        $stmt->execute([':tid' => $tenantId]);
+    }
+
+    /**
+     * Remove all cached tenant matches for one room.
+     */
+    public function clearRoomCache(int $roomId): void
+    {
+        $stmt = $this->db->prepare("DELETE FROM tenant_compatibility_cache WHERE room_id = :rid");
+        $stmt->execute([':rid' => $roomId]);
+    }
+
+    private function clearTenantRoomCache(int $tenantId, int $roomId): void
+    {
+        $stmt = $this->db->prepare("DELETE FROM tenant_compatibility_cache WHERE tenant_id = :tid AND room_id = :rid");
+        $stmt->execute([':tid' => $tenantId, ':rid' => $roomId]);
+    }
+
+    /**
      * Refresh all cache entries for a room.
      */
     public function refreshRoomCache(int $roomId): void
     {
+        $this->clearRoomCache($roomId);
+
         // Get all tenants who might be interested in this room or are in it
         $sql = "SELECT t.id FROM tenants t
                 JOIN users u ON t.user_id = u.id
@@ -185,6 +217,8 @@ class CompatibilityService
      */
     public function refreshTenantCache(int $tenantId): void
     {
+        $this->clearTenantCache($tenantId);
+
         // 1. Get tenant's current room if any
         $sql = "SELECT room_id FROM tenants WHERE id = :tid";
         $stmt = $this->db->prepare($sql);
@@ -284,8 +318,11 @@ class CompatibilityService
         $whereSql = implode(' AND ', $where);
 
         // Get all approved shared rooms that aren't full
-        $sql = "SELECT r.*, 
-                       (SELECT COUNT(*) FROM tenants t JOIN users u ON t.user_id = u.id WHERE t.room_id = r.id AND u.status = 'approved') as current_occupants
+        $sql = "SELECT r.*,
+                       (SELECT COUNT(*)
+                          FROM tenants t
+                          JOIN users u ON t.user_id = u.id
+                         WHERE t.room_id = r.id AND u.status = 'approved') AS current_occupants
                 FROM rooms r
                 WHERE {$whereSql}
                 ORDER BY r.room_number ASC";
@@ -301,7 +338,7 @@ class CompatibilityService
                 continue;
             }
 
-            $comp = $this->calculateCompatibility($tenantId, (int)$room['id']);
+            $comp = $this->calculateCompatibility($tenantId, (int)$room['id'], false);
             
             // Get current roommate names
             $roommateSql = "SELECT u.name FROM tenants t JOIN users u ON t.user_id = u.id WHERE t.room_id = :rid AND u.status = 'approved'";
@@ -312,6 +349,11 @@ class CompatibilityService
             $recommendations[] = [
                 'room_id' => $room['id'],
                 'room_number' => $room['room_number'],
+                'room_type' => $room['room_type'] ?? 'shared',
+                'max_occupants' => (int)($room['max_occupants'] ?? 0),
+                'allowed_gender' => $room['allowed_gender'] ?? 'any',
+                'air_conditioned' => (int)($room['air_conditioned'] ?? 0),
+                'monthly_rent' => (float)($room['monthly_rent'] ?? 0),
                 'compatibility_score' => $comp['score'],
                 'status' => $comp['status'],
                 'color' => $comp['color'],
@@ -336,6 +378,21 @@ class CompatibilityService
         if ($score >= 75) return ['status' => 'Good Match', 'color' => 'blue'];
         if ($score >= 50) return ['status' => 'Moderate Match', 'color' => 'orange'];
         return ['status' => 'Poor Match', 'color' => 'red'];
+    }
+
+    private function getColorForStatus(string $status, float $score): string
+    {
+        return match ($status) {
+            'Empty Room' => 'blue',
+            'Gender Mismatch' => 'red',
+            'Incomplete Profile', 'Incomplete Data', 'Incomplete Roommate Data' => 'gray',
+            default => $this->getStatusData($score)['color'],
+        };
+    }
+
+    private function isIncompleteCacheStatus(string $status): bool
+    {
+        return in_array($status, ['Incomplete Profile', 'Incomplete Data', 'Incomplete Roommate Data'], true);
     }
 
     /**

@@ -22,7 +22,8 @@ class Complaint extends Model
         }
         $sql = "SELECT c.*,
                        CASE WHEN c.is_anonymous = 1 THEN 'Anonymous' ELSE u.name END AS display_name,
-                       u.id AS user_id, r.room_number
+                       u.id AS user_id, r.room_number,
+                       0 as message_count
                 FROM {$this->table} c
                 JOIN tenants t ON c.tenant_id = t.id
                 JOIN users   u ON t.user_id   = u.id
@@ -36,7 +37,11 @@ class Complaint extends Model
 
     public function getByTenantId(int $tenantId): array
     {
-        $sql  = "SELECT * FROM {$this->table} WHERE tenant_id = :tid ORDER BY created_at DESC";
+        $sql  = "SELECT c.*,
+                        0 as message_count
+                 FROM {$this->table} c
+                 WHERE tenant_id = :tid 
+                 ORDER BY c.created_at DESC";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([':tid' => $tenantId]);
         return $stmt->fetchAll();
@@ -69,7 +74,7 @@ class Complaint extends Model
      */
     public function submit(int $tenantId, array $data): int
     {
-        return $this->insert([
+        $complaintId = $this->insert([
             'tenant_id'    => $tenantId,
             'title'        => $data['title'],
             'category'     => $data['category'] ?? 'other',
@@ -77,6 +82,8 @@ class Complaint extends Model
             'is_anonymous' => !empty($data['is_anonymous']) ? 1 : 0,
             'status'       => 'pending',
         ]);
+
+        return $complaintId;
     }
 
     /**

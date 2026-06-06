@@ -53,4 +53,7 @@ $hasUnread   = (bool) ($hasUnreadNotifications ?? false);
   pointer-events: none;
   flex-shrink: 0;
 }
+.notif-red-dot[hidden] {
+  display: none !important;
+}
 </style>

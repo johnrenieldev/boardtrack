@@ -4,18 +4,15 @@
 Options -Indexes
 Options -MultiViews
 
+<FilesMatch "^(GET_LOCAL_CREDENTIALS|GET_USER_CREDENTIALS|TEST_EMAIL_FUNCTIONS)\.php$|^(DEPLOYMENT_EMAIL_SUMMARY|HOSTINGER_FIX_PROMPT)\.txt$|^HOSTINGER_FIX_PROMPT\.md$">
+    Require all denied
+</FilesMatch>
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
-
-    # Hostinger recommended setup:
-    # - Point domain/subdomain document root to this `public` folder
-    # - Keep RewriteBase as /
     RewriteBase /
 
-    # If deployed under a subdirectory, use:
-    # RewriteBase /boardtrack/
-
-    # Allow real files and real directories to pass through untouched
+    # Allow real files and real directories to pass through
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
 
@@ -32,6 +29,23 @@ Options -MultiViews
 <IfModule mod_headers.c>
     Header set X-Content-Type-Options "nosniff"
     Header set X-Frame-Options "SAMEORIGIN"
+    
+    # Prevent caching of HTML/PHP pages
+    <FilesMatch "\.(html|htm|php)$">
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+    </FilesMatch>
+    
+    # Cache static assets for 1 hour (use versioning for cache-busting)
+    <FilesMatch "\.(css|js)$">
+        Header set Cache-Control "public, max-age=3600"
+    </FilesMatch>
+    
+    # Cache images for 1 week
+    <FilesMatch "\.(jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot)$">
+        Header set Cache-Control "public, max-age=604800"
+    </FilesMatch>
 </IfModule>
 
 # Block access to hidden files (.env, .git, etc.)

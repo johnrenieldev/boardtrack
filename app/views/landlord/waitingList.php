@@ -15,6 +15,16 @@ $availableRooms = $availableRooms ?? [];
       <h1 class="page-title">Waiting List</h1>
       <p class="page-subtitle">Approved tenants awaiting room assignments (FIFO based on approval date).</p>
     </div>
+    <?php if (!empty($queue)): ?>
+    <div>
+      <form action="<?= Router::url('landlord/auto-assign-waiting-list') ?>" method="POST" style="display:inline;" onsubmit="return confirm('Auto-assign all waiting tenants to available rooms based on their preferences?');">
+        <input type="hidden" name="csrf_token" value="<?= $this->csrf() ?>">
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Assign All
+        </button>
+      </form>
+    </div>
+    <?php endif; ?>
   </div>
 </div>
 
@@ -123,6 +133,7 @@ $availableRooms = $availableRooms ?? [];
       <button class="modal-close" onclick="closeModal('assignModal')">&times;</button>
     </div>
     <form action="<?= Router::url('landlord/assign-from-waiting') ?>" method="POST">
+      <input type="hidden" name="csrf_token" value="<?= $this->csrf() ?>">
       <input type="hidden" name="waiting_id" id="assignWaitingId">
       <div class="modal-body">
         <p style="margin:0 0 16px;color:var(--color-text-secondary);">Assign <strong id="assignTenantName"></strong> to a <strong id="assignPreference"></strong> room.</p>

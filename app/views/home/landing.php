@@ -515,12 +515,13 @@ document.getElementById('backToTop').addEventListener('click', function() {
       </p>
     </div>
     <?php if (!empty($testimonials)): ?>
-      <div class="grid md:grid-cols-3 gap-3 sm:gap-4">
+      <div class="overflow-x-auto pb-4">
+        <div class="flex gap-3 sm:gap-4" style="min-width: min-content;">
         <?php foreach ($testimonials as $index => $t):
           $initials = strtoupper(substr($t['name'] ?? 'U', 0, 1));
           $rating = $t['rating'] ?? 5;
         ?>
-        <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 animate-fade-in-up" style="animation-delay: <?= ($index * 0.05) ?>s">
+        <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 animate-fade-in-up flex-shrink-0" style="animation-delay: <?= ($index * 0.05) ?>s; width: 320px; max-width: 90vw;">
           <div class="flex items-center gap-1 mb-3">
             <?php for ($i = 1; $i <= 5; $i++): ?>
               <?php if ($i <= $rating): ?>
@@ -544,6 +545,7 @@ document.getElementById('backToTop').addEventListener('click', function() {
           </div>
         </div>
         <?php endforeach; ?>
+        </div>
       </div>
     <?php else: ?>
       <div class="text-center py-12">
@@ -657,10 +659,6 @@ document.getElementById('backToTop').addEventListener('click', function() {
       
       <div class="flex flex-col items-center md:items-end gap-2 text-[10px] sm:text-xs font-medium tracking-wide">
         <div>&copy; <?= date('Y') ?> BoardTrack. All rights reserved.</div>
-        <div class="flex items-center gap-2 text-gray-500">
-          <i class="fa-solid fa-shield-halved text-[8px]"></i>
-          Smart Boarding House Platform
-        </div>
       </div>
     </div>
   </div>
@@ -716,8 +714,8 @@ document.getElementById('contactForm').addEventListener('submit', function(e) {
     }
   })
   .catch(error => {
-    // For now, show success as fallback if backend not implemented
-    successDiv.classList.remove('hidden');
+    console.error(error);
+    errorDiv.classList.remove('hidden');
     form.reset();
     console.log('Contact form submitted (backend endpoint may need implementation)');
   });

@@ -60,10 +60,11 @@ $totalQuestions = count($questions);
         <!-- Options -->
         <div style="display:flex;flex-direction:column;gap:10px;">
           <?php foreach ($question['options'] ?? [] as $idx => $label): ?>
+            <?php $answerValue = $idx + 1; ?>
             <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:var(--radius);cursor:pointer;transition:border-color 0.15s,background 0.15s;">
               <input type="radio"
                      name="answers[<?= $question['id'] ?? '' ?>]"
-                     value="<?= $idx ?>"
+                     value="<?= $answerValue ?>"
                      required
                      style="width:18px;height:18px;accent-color:var(--primary);flex-shrink:0;"
                      onchange="onAnswerSelect()">

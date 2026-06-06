@@ -4,10 +4,10 @@
  * app/views/landlord/notifications.php
  *
  * Sections:
- *   "New"   → unread notifications  (blue cards, data-notif-read="0")
- *   "Today" → read notifications    (white cards, data-notif-read="1")
+ *   "New"  → unread notifications  (blue cards, data-notif-read="0")
+ *   "Seen" → read notifications    (white cards, data-notif-read="1")
  *
- * notifications.js moves cards New → Today on click and syncs the red dot.
+ * notifications.js moves cards New → Seen on click and syncs the red dot.
  * No "Mark All as Read". No numeric counters.
  */
 
@@ -28,6 +28,7 @@ function renderNotifCard(array $notif, string $deleteUrlBase, bool $isRead): str
         'room'         => 'fa-door-open',
         'announcement' => 'fa-bullhorn',
         'billing'      => 'fa-file-invoice',
+        'review'       => 'fa-star',
         default        => 'fa-bell',
     };
 
@@ -110,8 +111,8 @@ $hasAny = !empty($unreadNotifs) || !empty($readNotifs);
       <?php endif; ?>
 
       <?php if (!empty($readNotifs)): ?>
-        <div class="notif-group" id="notif-section-today">
-          <div class="notif-group-header">Today</div>
+        <div class="notif-group" id="notif-section-seen">
+          <div class="notif-group-header">Seen</div>
           <?php foreach ($readNotifs as $notif): ?>
             <?= renderNotifCard($notif, $deleteUrlBase, true) ?>
           <?php endforeach; ?>

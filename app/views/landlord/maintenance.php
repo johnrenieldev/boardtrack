@@ -59,7 +59,8 @@ $filters  = $filters ?? [];
 
 <!-- Filters -->
 <div class="card" style="margin-bottom:16px;padding:14px 20px;">
-  <form method="GET" action="<?= Router::url('landlord/maintenance') ?>" class="filter-bar" style="margin-bottom:0;">
+  <form method="GET" action="index.php" class="filter-bar" style="margin-bottom:0;">
+    <input type="hidden" name="url" value="landlord/maintenance">
     <select name="status" class="form-select">
       <option value="">All Statuses</option>
       <option value="pending" <?= ($filters['status'] ?? '') === 'pending' ? 'selected' : '' ?>>Pending</option>

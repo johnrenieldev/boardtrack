@@ -7,6 +7,7 @@
 $tenants        = $tenants        ?? [];
 $filters        = $filters        ?? [];
 $availableRooms = $availableRooms ?? [];
+$tenantStats    = $tenantStats    ?? [];
 ?>
 
 <div class="page-header">
@@ -25,19 +26,16 @@ $availableRooms = $availableRooms ?? [];
       <div class="stat-icon-box"><i class="fa-solid fa-users"></i></div>
       <div class="stat-label">Total Tenants</div>
     </div>
-    <div class="stat-value"><?= count($tenants) ?></div>
+    <div class="stat-value"><?= $tenantStats['total'] ?? 0 ?></div>
     <div class="stat-footer">Across <span>all statuses</span></div>
   </div>
   
-  <?php 
-    $pendingCount = count(array_filter($tenants, fn($t) => $t['user_status'] === 'pending'));
-  ?>
-  <div class="stat-card <?= $pendingCount > 0 ? 'urgent' : '' ?>">
+  <div class="stat-card <?= ($tenantStats['pending'] ?? 0) > 0 ? 'urgent' : '' ?>">
     <div class="stat-header">
       <div class="stat-icon-box"><i class="fa-solid fa-clock"></i></div>
       <div class="stat-label">Pending</div>
     </div>
-    <div class="stat-value"><?= $pendingCount ?></div>
+    <div class="stat-value"><?= $tenantStats['pending'] ?? 0 ?></div>
     <div class="stat-footer">Requires <span>review</span></div>
   </div>
   
@@ -46,7 +44,7 @@ $availableRooms = $availableRooms ?? [];
       <div class="stat-icon-box"><i class="fa-solid fa-circle-check"></i></div>
       <div class="stat-label">Active</div>
     </div>
-    <div class="stat-value"><?= count(array_filter($tenants, fn($t) => $t['user_status'] === 'approved' && !empty($t['room_id']))) ?></div>
+    <div class="stat-value"><?= $tenantStats['active'] ?? 0 ?></div>
     <div class="stat-footer">Currently <span>in rooms</span></div>
   </div>
   
@@ -55,14 +53,14 @@ $availableRooms = $availableRooms ?? [];
       <div class="stat-icon-box"><i class="fa-solid fa-list-ol"></i></div>
       <div class="stat-label">Waiting List</div>
     </div>
-    <div class="stat-value"><?= count(array_filter($tenants, fn($t) => $t['user_status'] === 'approved' && empty($t['room_id']))) ?></div>
+    <div class="stat-value"><?= $tenantStats['waiting_list'] ?? 0 ?></div>
     <div class="stat-footer">Awaiting <span>assignment</span></div>
   </div>
 </div>
 
 <!-- Filters -->
 <div class="card" style="margin-bottom:16px;padding:14px 20px;">
-  <form method="GET" action="<?= Router::url('landlord/tenants') ?>" class="filter-bar" style="margin-bottom:0;">
+  <form method="GET" action="index.php" class="filter-bar" style="margin-bottom:0;">
     <input type="hidden" name="url" value="landlord/tenants">
     <select name="status" class="form-select">
       <option value="">All Statuses</option>
@@ -85,6 +83,7 @@ $availableRooms = $availableRooms ?? [];
       <option value="">All Genders</option>
       <option value="male" <?= ($filters['gender'] ?? '') === 'male' ? 'selected' : '' ?>>Male</option>
       <option value="female" <?= ($filters['gender'] ?? '') === 'female' ? 'selected' : '' ?>>Female</option>
+      <option value="prefer_not_to_say" <?= ($filters['gender'] ?? '') === 'prefer_not_to_say' ? 'selected' : '' ?>>Prefer not to say</option>
     </select>
     <input type="text" name="search" class="form-input" placeholder="Search name..." value="<?= htmlspecialchars($filters['search'] ?? '') ?>">
     <button type="submit" class="btn btn-outline btn-sm">Filter</button>
@@ -131,15 +130,32 @@ $availableRooms = $availableRooms ?? [];
               <td data-label="Gender">
                 <div class="flex-center">
                   <span class="text-xs font-bold text-gray-500 flex items-center gap-1.5">
-                    <i class="fa-solid <?= ($tenant['gender'] ?? '') === 'male' ? 'fa-mars text-blue-500' : 'fa-venus text-pink-500' ?>"></i>
-                    <?= ucfirst($tenant['gender'] ?? '—') ?>
+                    <?php
+                      $genderIcon = match($tenant['gender'] ?? '') {
+                        'male' => 'fa-mars text-blue-500',
+                        'female' => 'fa-venus text-pink-500',
+                        'prefer_not_to_say' => 'fa-genderless text-gray-500',
+                        default => 'fa-question text-gray-400'
+                      };
+                      $genderLabel = match($tenant['gender'] ?? '') {
+                        'male' => 'Male',
+                        'female' => 'Female',
+                        'prefer_not_to_say' => 'Prefer not to say',
+                        default => '—'
+                      };
+                    ?>
+                    <i class="fa-solid <?= $genderIcon ?>"></i>
+                    <?= $genderLabel ?>
                   </span>
                 </div>
               </td>
               <td data-label="Status" data-col="status">
                 <div class="flex-center">
                   <?php
-                    $isReady = ($tenant['user_status'] === 'pending' && $tenant['personality_completed'] && !empty($tenant['id_document_path']));
+                    $activeQuestions = (int)($tenant['active_questions'] ?? 0);
+                    $answeredQuestions = (int)($tenant['answered_questions'] ?? 0);
+                    $hasCompleteQuiz = $activeQuestions > 0 && $answeredQuestions >= $activeQuestions;
+                    $isReady = ($tenant['user_status'] === 'pending' && $tenant['personality_completed'] && !empty($tenant['id_document_path']) && $hasCompleteQuiz);
                     $sBadge = match($tenant['user_status']) {
                       'approved'     => !empty($tenant['room_id']) ? 'badge-active' : 'badge-waiting',
                       'pending'      => $isReady ? 'badge-info' : 'badge-pending',
@@ -181,12 +197,12 @@ $availableRooms = $availableRooms ?? [];
                     <i class="fa-solid fa-eye text-xs"></i>
                   </a>
                   <?php if ($tenant['user_status'] === 'pending'): ?>
-                    <?php if ($tenant['personality_completed']): ?>
+                    <?php if ($isReady): ?>
                       <button type="button" class="btn btn-success btn-sm btn-icon" onclick="showApproveModal(<?= $tenant['id'] ?>, '<?= htmlspecialchars(addslashes($tenant['name'])) ?>', <?= (int)($tenant['air_conditioned_preference'] ?? 0) ?>)" title="Approve">
                         <i class="fa-solid fa-check text-xs"></i>
                       </button>
                     <?php else: ?>
-                      <button type="button" class="btn btn-secondary btn-sm btn-icon cursor-not-allowed opacity-50" title="Quiz Incomplete" onclick="Swal.fire('Incomplete Profile', 'This tenant has not completed their personality questionnaire yet.', 'warning')">
+                      <button type="button" class="btn btn-secondary btn-sm btn-icon cursor-not-allowed opacity-50" title="Profile Incomplete" onclick="Swal.fire('Incomplete Profile', 'This tenant still needs a complete quiz and ID document before approval.', 'warning')">
                         <i class="fa-solid fa-check text-xs"></i>
                       </button>
                     <?php endif; ?>
@@ -443,6 +459,19 @@ function previewCompatibility(roomId, containerId) {
         return;
       }
 
+      const statusOnly = ['Empty Room', 'Incomplete Profile', 'Incomplete Data', 'Incomplete Roommate Data'].includes(data.status);
+      const scoreLabel = statusOnly ? (data.status === 'Empty Room' ? 'Open room' : 'Pending data') : Math.round(data.score) + '%';
+      const meterHtml = statusOnly ? `
+        <div class="text-[0.7rem] font-bold text-gray-500">${scoreLabel}</div>
+      ` : `
+        <div class="flex items-center gap-3">
+          <div class="text-xl font-black text-gray-900">${scoreLabel}</div>
+          <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div class="h-full bg-${data.color === 'blue' ? 'brand' : (data.color === 'green' ? 'success' : (data.color === 'orange' ? 'warning' : 'danger'))}-500" style="width: ${data.score}%"></div>
+          </div>
+        </div>
+      `;
+
       let reasonsHtml = '';
       if (data.explanation && data.explanation.length > 0) {
         reasonsHtml = `
@@ -466,14 +495,9 @@ function previewCompatibility(roomId, containerId) {
             <div class="text-[0.65rem] font-bold text-gray-400 uppercase tracking-widest">Compatibility Preview</div>
             <span class="comp-badge comp-badge-${data.color}">${data.status}</span>
           </div>
-          <div class="flex items-center gap-3">
-            <div class="text-xl font-black text-gray-900">${Math.round(data.score)}%</div>
-            <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div class="h-full bg-${data.color === 'blue' ? 'brand' : (data.color === 'green' ? 'success' : (data.color === 'orange' ? 'warning' : 'danger'))}-500" style="width: ${data.score}%"></div>
-            </div>
-          </div>
+          ${meterHtml}
           ${reasonsHtml}
-          ${data.score < 50 ? `
+          ${!statusOnly && data.score < 50 ? `
             <div class="mt-3 p-2 bg-danger-50 border border-danger-100 rounded text-[0.65rem] text-danger-600 font-bold flex items-start gap-2">
               <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
               <span>Low compatibility detected. This match may increase roommate conflict.</span>
@@ -521,3 +545,174 @@ if (!empty($_SESSION['move_out_warnings']) && !empty($_SESSION['move_out_tenant_
 endif;
 ?>
 </script>
+
+<style>
+/* Optimize table for compact and formal layout - no horizontal scroll */
+.bt-table th,
+.bt-table td {
+  padding: 8px 10px !important;
+  vertical-align: middle !important;
+  font-size: 0.8rem !important;
+}
+
+.bt-table th {
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+}
+
+/* Column widths for better alignment - reduced to fit without scroll */
+.bt-table th:nth-child(1),
+.bt-table td:nth-child(1) {
+  width: 20%;
+  min-width: 160px;
+  text-align: left;
+}
+
+.bt-table th:nth-child(2),
+.bt-table td:nth-child(2) {
+  width: 10%;
+  min-width: 85px;
+  text-align: center;
+}
+
+.bt-table th:nth-child(3),
+.bt-table td:nth-child(3) {
+  width: 13%;
+  min-width: 110px;
+  text-align: center;
+}
+
+.bt-table th:nth-child(4),
+.bt-table td:nth-child(4) {
+  width: 12%;
+  min-width: 95px;
+  text-align: center;
+}
+
+.bt-table th:nth-child(5),
+.bt-table td:nth-child(5) {
+  width: 13%;
+  min-width: 100px;
+  text-align: center;
+}
+
+.bt-table th:nth-child(6),
+.bt-table td:nth-child(6) {
+  width: 11%;
+  min-width: 90px;
+  text-align: center;
+}
+
+.bt-table th:nth-child(7),
+.bt-table td:nth-child(7) {
+  width: 13%;
+  min-width: 110px;
+  text-align: center;
+}
+
+/* Center all column headers except Tenant */
+.bt-table th:not(:first-child) {
+  text-align: center;
+}
+
+/* Center column headers */
+.bt-table th[data-col="status"],
+.bt-table th[data-col="actions"] {
+  text-align: center;
+}
+
+/* Make tenant names and emails more compact */
+.bt-table .td-name {
+  font-size: 0.8rem !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+}
+
+.bt-table .td-sub {
+  font-size: 0.7rem !important;
+  color: var(--gray-500) !important;
+  margin-top: 2px !important;
+}
+
+/* Make avatar smaller */
+.bt-table td:first-child > div > div:first-child {
+  width: 26px !important;
+  height: 26px !important;
+  font-size: 0.65rem !important;
+}
+
+/* Make badges more compact */
+.bt-table .badge {
+  font-size: 0.65rem !important;
+  padding: 3px 8px !important;
+  white-space: nowrap !important;
+}
+
+/* Make gender icons and text smaller and ensure proper centering */
+.bt-table td[data-label="Gender"] span {
+  font-size: 0.7rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+
+.bt-table td[data-label="Gender"] .flex-center {
+  justify-content: center !important;
+  display: flex !important;
+}
+
+/* Center content in specific columns */
+.flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Force center alignment for data cells in centered columns */
+.bt-table td:nth-child(2),
+.bt-table td:nth-child(3),
+.bt-table td:nth-child(4),
+.bt-table td:nth-child(5),
+.bt-table td:nth-child(6),
+.bt-table td:nth-child(7) {
+  text-align: center !important;
+}
+
+/* Ensure flex-center divs are centered and take full width */
+.bt-table td .flex-center {
+  width: 100%;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+/* Override any conflicting flex classes */
+.bt-table td .flex-center > * {
+  margin: 0 auto;
+}
+
+/* Make action buttons more compact */
+.bt-table td[data-col="actions"] .btn {
+  padding: 4px 6px !important;
+}
+
+.bt-table td[data-col="actions"] .btn i {
+  font-size: 0.65rem !important;
+}
+
+.bt-table td[data-col="actions"] > div {
+  gap: 3px !important;
+}
+
+/* Reduce registered date font size */
+.bt-table td[data-label="Registered"] {
+  font-size: 0.7rem !important;
+  color: var(--gray-500) !important;
+}
+
+/* Make room preference and room assigned text smaller */
+.bt-table td[data-label="Room Pref"],
+.bt-table td[data-label="Room"] {
+  font-size: 0.75rem !important;
+}
+</style>

@@ -1,14 +1,41 @@
 <?php
 /**
  * Shared tenant payment form fields (GCash QR + method + receipt)
- * Expects: $landlordGcash (array), optional $billId for hidden field
+ * Expects: $landlordGcash (array), optional $billId for hidden field, optional $bill for amount calculation
  */
 $landlordGcash = $landlordGcash ?? ['has_qr' => false, 'qr_url' => null, 'landlord_name' => 'Landlord'];
 $hasQr = !empty($landlordGcash['has_qr']) && !empty($landlordGcash['qr_url']);
+$bill = $bill ?? null;
+$billAmount = $bill ? (float)($bill['amount'] ?? 0) : 0;
+$amountPaid = $bill ? (float)($bill['amount_paid'] ?? 0) : 0;
+$remainingBalance = max(0, $billAmount - $amountPaid);
 ?>
+<input type="hidden" name="csrf_token" value="<?= $this->csrf() ?>">
 <?php if (!empty($billId)): ?>
   <input type="hidden" name="bill_id" value="<?= (int) $billId ?>">
 <?php endif; ?>
+
+<div class="form-group">
+  <label class="form-label">Amount to Pay <span class="req">*</span></label>
+  <div style="position: relative;">
+    <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--color-text-secondary); font-weight: 600;">₱</span>
+    <input type="number" name="amount_paid" id="amount_paid" class="form-input" 
+           style="padding-left: 28px;" 
+           step="0.01" min="0.01" 
+           max="<?= $remainingBalance > 0 ? $remainingBalance : $billAmount ?>" 
+           value="<?= $remainingBalance > 0 ? $remainingBalance : $billAmount ?>" 
+           required 
+           oninput="validatePaymentAmount()">
+  </div>
+  <div class="form-help" id="amountHelp">
+    <?php if ($remainingBalance > 0): ?>
+      You can pay any amount up to ₱<?= number_format($remainingBalance, 2) ?>
+    <?php else: ?>
+      Enter the amount you are paying (max: ₱<?= number_format($billAmount, 2) ?>)
+    <?php endif; ?>
+  </div>
+  <div class="form-help" id="amountError" style="display: none; color: var(--color-danger);"></div>
+</div>
 
 <div class="form-group">
   <label class="form-label">How will you pay? <span class="req">*</span></label>
@@ -31,7 +58,7 @@ $hasQr = !empty($landlordGcash['has_qr']) && !empty($landlordGcash['qr_url']);
     <?php if ($hasQr): ?>
       <div style="text-align: center;">
         <img src="<?= htmlspecialchars($landlordGcash['qr_url']) ?>" alt="Landlord GCash QR" id="landlordGcashQrImg"
-             style="max-width: 200px; width: 100%; border-radius: 8px; border: 2px solid #fff; box-shadow: var(--shadow-sm);">
+             style="max-width: min(200px, 70vw); width: 100%; border-radius: 8px; border: 2px solid #fff; box-shadow: var(--shadow-sm);">
       </div>
     <?php else: ?>
       <div class="alert" style="margin: 0; background: var(--warning-light); color: var(--warning); border: none;">
@@ -66,6 +93,39 @@ $hasQr = !empty($landlordGcash['has_qr']) && !empty($landlordGcash['qr_url']);
 </div>
 
 <script>
+function validatePaymentAmount() {
+  var input = document.getElementById('amount_paid');
+  var errorDiv = document.getElementById('amountError');
+  var helpDiv = document.getElementById('amountHelp');
+  
+  if (!input) return true;
+  
+  var amount = parseFloat(input.value);
+  var max = parseFloat(input.max);
+  var min = parseFloat(input.min);
+  
+  if (isNaN(amount) || amount <= 0) {
+    errorDiv.textContent = 'Amount must be greater than zero.';
+    errorDiv.style.display = 'block';
+    helpDiv.style.display = 'none';
+    input.setCustomValidity('Amount must be greater than zero');
+    return false;
+  }
+  
+  if (amount > max) {
+    errorDiv.textContent = 'Amount cannot exceed remaining balance of ₱' + max.toFixed(2);
+    errorDiv.style.display = 'block';
+    helpDiv.style.display = 'none';
+    input.setCustomValidity('Amount exceeds remaining balance');
+    return false;
+  }
+  
+  errorDiv.style.display = 'none';
+  helpDiv.style.display = 'block';
+  input.setCustomValidity('');
+  return true;
+}
+
 function togglePaymentMethod() {
   var method = document.getElementById('payment_method').value;
   var gcashBox = document.getElementById('gcashQrSection');
@@ -99,3 +159,96 @@ function updatePaymentFileName(input) {
   }
 }
 </script>
+
+<style>
+/* Mobile-responsive styles for payment modal */
+@media (max-width: 480px) {
+  /* Reduce QR code size on very small screens */
+  #landlordGcashQrImg {
+    max-width: min(160px, 65vw) !important;
+  }
+  
+  /* Reduce padding in upload area */
+  .upload-area {
+    padding: 16px 12px !important;
+    font-size: 0.9rem;
+  }
+  
+  .upload-area i {
+    font-size: 2rem !important;
+  }
+  
+  /* Reduce padding in form groups */
+  .form-group {
+    margin-bottom: 14px;
+  }
+  
+  /* Make input fields more compact */
+  .form-input,
+  .form-select,
+  .form-textarea {
+    font-size: 0.9rem;
+    padding: 10px 12px;
+  }
+  
+  /* Reduce padding in info boxes */
+  #gcashQrSection > div,
+  #cashInstructions {
+    padding: 12px !important;
+    font-size: 0.85rem;
+  }
+  
+  /* Make labels more compact */
+  .form-label {
+    font-size: 0.85rem;
+    margin-bottom: 6px;
+  }
+  
+  /* Reduce help text size */
+  .form-help {
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 375px) {
+  /* Extra small screens - further reduce QR size */
+  #landlordGcashQrImg {
+    max-width: min(140px, 60vw) !important;
+  }
+  
+  /* More compact upload area */
+  .upload-area {
+    padding: 12px 10px !important;
+  }
+  
+  /* Smaller text in info sections */
+  #gcashQrSection > div,
+  #cashInstructions {
+    padding: 10px !important;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 320px) {
+  /* iPhone SE and very small devices */
+  #landlordGcashQrImg {
+    max-width: min(120px, 55vw) !important;
+  }
+  
+  .upload-area {
+    padding: 10px 8px !important;
+    font-size: 0.85rem;
+  }
+  
+  .upload-area i {
+    font-size: 1.75rem !important;
+  }
+  
+  .form-input,
+  .form-select,
+  .form-textarea {
+    font-size: 0.85rem;
+    padding: 8px 10px;
+  }
+}
+</style>

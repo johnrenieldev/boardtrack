@@ -150,13 +150,21 @@ HTML;
         string $tenantName,
         string $billName,
         float $amount,
-        string $methodLabel = ''
+        string $methodLabel = '',
+        float $remainingBalance = 0
     ): string {
         $name = htmlspecialchars($tenantName, ENT_QUOTES, 'UTF-8');
         $bill = htmlspecialchars($billName, ENT_QUOTES, 'UTF-8');
         $amt = number_format($amount, 2);
         $method = $methodLabel !== '' ? ' via ' . htmlspecialchars($methodLabel, ENT_QUOTES, 'UTF-8') : '';
         $bills = htmlspecialchars(Router::url('tenant/bills'), ENT_QUOTES, 'UTF-8');
+
+        $balanceMessage = '';
+        if ($remainingBalance > 0) {
+            $balanceMessage = '<p style="color:#dc2626;font-weight:600;background:#fef2f2;border-left:4px solid #dc2626;padding:12px 16px;margin:16px 0;">⚠️ You still have a remaining balance of <strong>₱' . number_format($remainingBalance, 2) . '</strong> on this bill. Please pay the remaining balance before the due date to avoid penalties.</p>';
+        } else {
+            $balanceMessage = '<p style="color:#16a34a;font-weight:600;background:#f0fdf4;border-left:4px solid #16a34a;padding:12px 16px;margin:16px 0;">✅ Your bill is now fully paid. Thank you!</p>';
+        }
 
         return self::wrap(
             'Payment Confirmed',
@@ -166,6 +174,7 @@ HTML;
                <tr><td style=\"padding:8px 0;color:#6b7280;\">Bill</td><td style=\"padding:8px 0;font-weight:600;\">{$bill}</td></tr>
                <tr><td style=\"padding:8px 0;color:#6b7280;\">Amount</td><td style=\"padding:8px 0;font-weight:600;\">₱{$amt}</td></tr>
              </table>
+             {$balanceMessage}
              <p>You can view your billing history in your BoardTrack account.</p>
              <p style=\"margin:24px 0;\">
                <a href=\"{$bills}\" style=\"display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600;\">View My Bills</a>
@@ -202,12 +211,20 @@ HTML;
         string $tenantName,
         string $billName,
         float $amount,
-        string $purpose
+        string $purpose,
+        float $remainingBalance = 0
     ): string {
         $tenant = htmlspecialchars($tenantName, ENT_QUOTES, 'UTF-8');
         $bill = htmlspecialchars($billName, ENT_QUOTES, 'UTF-8');
         $amt = number_format($amount, 2);
         $why = nl2br(htmlspecialchars($purpose, ENT_QUOTES, 'UTF-8'));
+
+        $balanceMessage = '';
+        if ($remainingBalance > 0) {
+            $balanceMessage = '<p style="color:#dc2626;font-weight:600;background:#fef2f2;border-left:4px solid #dc2626;padding:12px 16px;margin:16px 0;">⚠️ Remaining balance: <strong>₱' . number_format($remainingBalance, 2) . '</strong>. Please ensure the tenant pays the remaining balance before the due date to avoid penalties.</p>';
+        } else {
+            $balanceMessage = '<p style="color:#16a34a;font-weight:600;background:#f0fdf4;border-left:4px solid #16a34a;padding:12px 16px;margin:16px 0;">✅ The bill is now fully paid.</p>';
+        }
 
         return self::wrap(
             'Tenant Payment Confirmed',
@@ -218,6 +235,7 @@ HTML;
                <tr><td style=\"padding:8px 0;color:#6b7280;\">Bill</td><td style=\"padding:8px 0;font-weight:600;\">{$bill}</td></tr>
                <tr><td style=\"padding:8px 0;color:#6b7280;\">Amount paid</td><td style=\"padding:8px 0;font-weight:600;\">₱{$amt}</td></tr>
              </table>
+             {$balanceMessage}
              <p><strong>Why you receive these updates:</strong></p>
              <p style=\"background:#f9fafb;border-left:4px solid #2563eb;padding:12px 16px;\">{$why}</p>"
         );
@@ -445,5 +463,231 @@ HTML;
              <p style=\"color:#666; font-size: 12px;\">This message was sent from the BoardTrack landing page contact form.</p>"
         );
     }
-}
 
+    /**
+     * Tenant overdue penalty notification
+     */
+    public static function tenantOverduePenalty(
+        string $name,
+        string $billName,
+        float $originalAmount,
+        float $penaltyAmount,
+        float $newTotal,
+        int $monthsOverdue,
+        string $dueDate
+    ): string {
+        $name = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+        $billName = htmlspecialchars($billName, ENT_QUOTES, 'UTF-8');
+        $originalFormatted = '₱' . number_format($originalAmount, 2);
+        $penaltyFormatted = '₱' . number_format($penaltyAmount, 2);
+        $totalFormatted = '₱' . number_format($newTotal, 2);
+        $dueDateFormatted = date('F j, Y', strtotime($dueDate));
+        $monthText = $monthsOverdue === 1 ? 'month' : 'months';
+        $billsLink = htmlspecialchars(Router::url('tenant/bills'), ENT_QUOTES, 'UTF-8');
+
+        return self::wrap(
+            'Overdue Penalty Applied',
+            "<div style=\"background:#fef2f2;border-left:4px solid #dc2626;padding:16px;margin-bottom:20px;border-radius:6px;\">
+               <p style=\"margin:0;font-weight:600;color:#dc2626;\">⚠️ Overdue Penalty Applied</p>
+             </div>
+             <p>Hi <strong>{$name}</strong>,</p>
+             <p>Your bill <strong>{$billName}</strong> is now <strong>{$monthsOverdue} {$monthText} overdue</strong>. 
+             A <strong>10% compounding penalty</strong> has been applied.</p>
+             
+             <div style=\"background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin:20px 0;\">
+               <h3 style=\"margin:0 0 16px;font-size:16px;color:#111827;\">Bill Details</h3>
+               <table width=\"100%\" cellpadding=\"8\" cellspacing=\"0\" style=\"font-size:14px;\">
+                 <tr style=\"border-bottom:1px solid #e5e7eb;\">
+                   <td style=\"color:#6b7280;\">Original Amount:</td>
+                   <td style=\"text-align:right;font-weight:600;\">{$originalFormatted}</td>
+                 </tr>
+                 <tr style=\"border-bottom:1px solid #e5e7eb;\">
+                   <td style=\"color:#6b7280;\">Penalty ({$monthsOverdue} {$monthText} × 10% compounded):</td>
+                   <td style=\"text-align:right;font-weight:600;color:#dc2626;\">+{$penaltyFormatted}</td>
+                 </tr>
+                 <tr>
+                   <td style=\"color:#111827;font-weight:700;font-size:16px;\">New Total Due:</td>
+                   <td style=\"text-align:right;font-weight:700;font-size:18px;color:#dc2626;\">{$totalFormatted}</td>
+                 </tr>
+               </table>
+               <p style=\"margin:16px 0 0;font-size:13px;color:#6b7280;\">
+                 <strong>Original Due Date:</strong> {$dueDateFormatted}
+               </p>
+             </div>
+             
+             <div style=\"background:#fffbeb;border-left:4px solid #f59e0b;padding:16px;margin:20px 0;border-radius:6px;\">
+               <p style=\"margin:0;font-size:14px;color:#92400e;\">
+                 <strong>⚠️ Important:</strong> Additional 10% penalties will be applied <strong>each month</strong> 
+                 the bill remains unpaid. The penalty <strong>compounds</strong> on the current total.
+               </p>
+             </div>
+             
+             <p style=\"margin:24px 0;\">
+               <a href=\"{$billsLink}\" style=\"display:inline-block;background:#dc2626;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;\">View Bill & Pay Now</a>
+             </p>
+             
+             <p><strong>How Compounding Works:</strong></p>
+             <ul style=\"color:#6b7280;font-size:14px;line-height:1.8;\">
+               <li>Month 1: {$originalFormatted} × 1.10 = " . '₱' . number_format($originalAmount * 1.10, 2) . "</li>
+               <li>Month 2: " . '₱' . number_format($originalAmount * 1.10, 2) . " × 1.10 = " . '₱' . number_format($originalAmount * 1.10 * 1.10, 2) . "</li>
+               <li>And so on...</li>
+             </ul>
+             
+             <p>Please settle this bill as soon as possible to avoid further charges. If you have any questions, 
+             please contact your landlord immediately.</p>"
+        );
+    }
+
+    /**
+     * Guardian overdue penalty notification
+     */
+    public static function guardianOverduePenalty(
+        string $guardianName,
+        string $tenantName,
+        string $billName,
+        float $originalAmount,
+        float $penaltyAmount,
+        float $newTotal,
+        int $monthsOverdue,
+        string $dueDate
+    ): string {
+        $guardianName = htmlspecialchars($guardianName, ENT_QUOTES, 'UTF-8');
+        $tenantName = htmlspecialchars($tenantName, ENT_QUOTES, 'UTF-8');
+        $billName = htmlspecialchars($billName, ENT_QUOTES, 'UTF-8');
+        $originalFormatted = '₱' . number_format($originalAmount, 2);
+        $penaltyFormatted = '₱' . number_format($penaltyAmount, 2);
+        $totalFormatted = '₱' . number_format($newTotal, 2);
+        $dueDateFormatted = date('F j, Y', strtotime($dueDate));
+        $monthText = $monthsOverdue === 1 ? 'month' : 'months';
+
+        return self::wrap(
+            'Overdue Penalty Applied',
+            "<div style=\"background:#fef2f2;border-left:4px solid #dc2626;padding:16px;margin-bottom:20px;border-radius:6px;\">
+               <p style=\"margin:0;font-weight:600;color:#dc2626;\">⚠️ Overdue Penalty Applied for {$tenantName}</p>
+             </div>
+             <p>Dear <strong>{$guardianName}</strong>,</p>
+             <p>This is a notification regarding <strong>{$tenantName}</strong>'s overdue bill.</p>
+             <p>The bill <strong>{$billName}</strong> is now <strong>{$monthsOverdue} {$monthText} overdue</strong>. 
+             A <strong>10% compounding penalty</strong> has been applied.</p>
+             
+             <div style=\"background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin:20px 0;\">
+               <h3 style=\"margin:0 0 16px;font-size:16px;color:#111827;\">Bill Details</h3>
+               <table width=\"100%\" cellpadding=\"8\" cellspacing=\"0\" style=\"font-size:14px;\">
+                 <tr style=\"border-bottom:1px solid #e5e7eb;\">
+                   <td style=\"color:#6b7280;\">Tenant:</td>
+                   <td style=\"text-align:right;font-weight:600;\">{$tenantName}</td>
+                 </tr>
+                 <tr style=\"border-bottom:1px solid #e5e7eb;\">
+                   <td style=\"color:#6b7280;\">Bill:</td>
+                   <td style=\"text-align:right;font-weight:600;\">{$billName}</td>
+                 </tr>
+                 <tr style=\"border-bottom:1px solid #e5e7eb;\">
+                   <td style=\"color:#6b7280;\">Original Amount:</td>
+                   <td style=\"text-align:right;font-weight:600;\">{$originalFormatted}</td>
+                 </tr>
+                 <tr style=\"border-bottom:1px solid #e5e7eb;\">
+                   <td style=\"color:#6b7280;\">Penalty ({$monthsOverdue} {$monthText} × 10% compounded):</td>
+                   <td style=\"text-align:right;font-weight:600;color:#dc2626;\">+{$penaltyFormatted}</td>
+                 </tr>
+                 <tr>
+                   <td style=\"color:#111827;font-weight:700;font-size:16px;\">New Total Due:</td>
+                   <td style=\"text-align:right;font-weight:700;font-size:18px;color:#dc2626;\">{$totalFormatted}</td>
+                 </tr>
+               </table>
+               <p style=\"margin:16px 0 0;font-size:13px;color:#6b7280;\">
+                 <strong>Original Due Date:</strong> {$dueDateFormatted}
+               </p>
+             </div>
+             
+             <div style=\"background:#fffbeb;border-left:4px solid #f59e0b;padding:16px;margin:20px 0;border-radius:6px;\">
+               <p style=\"margin:0;font-size:14px;color:#92400e;\">
+                 <strong>⚠️ Important:</strong> Additional 10% penalties will be applied <strong>each month</strong> 
+                 the bill remains unpaid. The penalty <strong>compounds</strong> on the current total.
+               </p>
+             </div>
+             
+             <p>As the listed emergency contact, we wanted to inform you of this situation. 
+             Please encourage {$tenantName} to settle this bill as soon as possible to avoid further charges.</p>
+             
+             <p>If you have any questions or concerns, please contact the landlord directly.</p>"
+        );
+    }
+
+    /**
+     * Partial payment reminder for tenant
+     */
+    public static function tenantPaymentPartialReminder(
+        string $tenantName,
+        string $billName,
+        float $totalAmount,
+        float $amountPaid,
+        float $remaining,
+        string $dueDate
+    ): string {
+        $name = htmlspecialchars($tenantName, ENT_QUOTES, 'UTF-8');
+        $bill = htmlspecialchars($billName, ENT_QUOTES, 'UTF-8');
+        $total = number_format($totalAmount, 2);
+        $paid = number_format($amountPaid, 2);
+        $rem = number_format($remaining, 2);
+        $due = htmlspecialchars(date('F j, Y', strtotime($dueDate)), ENT_QUOTES, 'UTF-8');
+        $bills = htmlspecialchars(Router::url('tenant/bills'), ENT_QUOTES, 'UTF-8');
+
+        return self::wrap(
+            'Partial Payment Received',
+            "<p>Hi <strong>{$name}</strong>,</p>
+             <p>We received your partial payment of <strong>₱{$paid}</strong> for <em>{$bill}</em>.</p>
+             <table style=\"width:100%;border-collapse:collapse;margin:16px 0;background:#f9fafb;border-radius:8px;\">
+               <tr><td style=\"padding:12px;color:#6b7280;\">Original bill</td><td style=\"padding:12px;font-weight:600;\">₱{$total}</td></tr>
+               <tr><td style=\"padding:12px;color:#6b7280;\">Amount paid</td><td style=\"padding:12px;font-weight:600;color:#16a34a;\">₱{$paid}</td></tr>
+               <tr style=\"border-top:2px solid #e5e7eb;\"><td style=\"padding:12px;color:#6b7280;font-weight:700;\">Remaining balance</td><td style=\"padding:12px;font-weight:700;color:#dc2626;font-size:1.1em;\">₱{$rem}</td></tr>
+             </table>
+             <p style=\"background:#fef2f2;border-left:4px solid #dc2626;padding:12px 16px;margin:16px 0;\">
+               <strong style=\"color:#dc2626;\">⚠️ Important:</strong> Please pay the remaining balance before the due date (<strong>{$due}</strong>) to avoid a 10% overdue penalty.
+             </p>
+             <p style=\"margin:24px 0;\">
+               <a href=\"{$bills}\" style=\"display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600;\">Pay Remaining Balance</a>
+             </p>"
+        );
+    }
+
+    /**
+     * Partial payment reminder for guardian
+     */
+    public static function guardianPaymentPartialReminder(
+        string $guardianName,
+        string $tenantName,
+        string $billName,
+        float $totalAmount,
+        float $amountPaid,
+        float $remaining,
+        string $dueDate,
+        string $purpose
+    ): string {
+        $guardian = htmlspecialchars($guardianName, ENT_QUOTES, 'UTF-8');
+        $tenant = htmlspecialchars($tenantName, ENT_QUOTES, 'UTF-8');
+        $bill = htmlspecialchars($billName, ENT_QUOTES, 'UTF-8');
+        $total = number_format($totalAmount, 2);
+        $paid = number_format($amountPaid, 2);
+        $rem = number_format($remaining, 2);
+        $due = htmlspecialchars(date('F j, Y', strtotime($dueDate)), ENT_QUOTES, 'UTF-8');
+        $why = nl2br(htmlspecialchars($purpose, ENT_QUOTES, 'UTF-8'));
+
+        return self::wrap(
+            'Partial Payment Notice',
+            "<p>Hello <strong>{$guardian}</strong>,</p>
+             <p>This is an official notice from <strong>" . APP_NAME . "</strong>.</p>
+             <p><strong>{$tenant}</strong> made a partial payment of <strong>₱{$paid}</strong> for <em>{$bill}</em>.</p>
+             <table style=\"width:100%;border-collapse:collapse;margin:16px 0;background:#f9fafb;border-radius:8px;\">
+               <tr><td style=\"padding:12px;color:#6b7280;\">Original bill</td><td style=\"padding:12px;font-weight:600;\">₱{$total}</td></tr>
+               <tr><td style=\"padding:12px;color:#6b7280;\">Amount paid</td><td style=\"padding:12px;font-weight:600;color:#16a34a;\">₱{$paid}</td></tr>
+               <tr style=\"border-top:2px solid #e5e7eb;\"><td style=\"padding:12px;color:#6b7280;font-weight:700;\">Remaining balance</td><td style=\"padding:12px;font-weight:700;color:#dc2626;font-size:1.1em;\">₱{$rem}</td></tr>
+             </table>
+             <p style=\"background:#fef2f2;border-left:4px solid #dc2626;padding:12px 16px;margin:16px 0;\">
+               <strong style=\"color:#dc2626;\">⚠️ Important:</strong> The remaining balance must be paid before the due date (<strong>{$due}</strong>) to avoid a 10% overdue penalty.
+             </p>
+             <p><strong>Why you receive these updates:</strong></p>
+             <p style=\"background:#f9fafb;border-left:4px solid #2563eb;padding:12px 16px;\">{$why}</p>"
+        );
+    }
+
+}

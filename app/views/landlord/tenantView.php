@@ -79,12 +79,26 @@ document.addEventListener('DOMContentLoaded', function() {
       </div>
       <div class="p-6 space-y-5">
         <div class="flex items-center gap-4">
-          <div class="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 border border-gray-100">
-            <i class="fa-solid fa-venus-mars"></i>
+          <?php
+            $genderIcon = match($tenant['gender'] ?? '') {
+              'male' => 'fa-mars text-blue-500',
+              'female' => 'fa-venus text-pink-500',
+              'prefer_not_to_say' => 'fa-genderless text-gray-500',
+              default => 'fa-venus-mars text-gray-400'
+            };
+            $genderDisplay = match($tenant['gender'] ?? '') {
+              'male' => 'Male',
+              'female' => 'Female',
+              'prefer_not_to_say' => 'Prefer not to say',
+              default => 'N/A'
+            };
+          ?>
+          <div class="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center border border-gray-100">
+            <i class="fa-solid <?= $genderIcon ?>"></i>
           </div>
           <div>
             <div class="text-[0.65rem] font-bold text-gray-400 uppercase tracking-wider">Gender</div>
-            <div class="text-sm font-black text-gray-900"><?= ucfirst(htmlspecialchars($tenant['gender'] ?? 'N/A')) ?></div>
+            <div class="text-sm font-black text-gray-900"><?= htmlspecialchars($genderDisplay) ?></div>
           </div>
         </div>
         <div class="flex items-center gap-4">
@@ -144,10 +158,10 @@ document.addEventListener('DOMContentLoaded', function() {
   <!-- Right Column: Details & Tabs -->
   <div class="lg:col-span-8 space-y-6">
     <!-- Verification Status (Added context) -->
-    <div class="flex items-center gap-4 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
+    <div class="flex items-center gap-4 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm app-status-card">
       <div class="flex-1">
         <div class="text-[0.6rem] font-black text-gray-400 uppercase tracking-widest mb-0.5">Application Status</div>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
           <span class="w-2 h-2 rounded-full <?= match($tenant['user_status']) {
             'approved' => 'bg-success-500',
             'pending'  => 'bg-warning-500',
@@ -157,15 +171,15 @@ document.addEventListener('DOMContentLoaded', function() {
           <span class="text-sm font-black text-gray-900 uppercase tracking-tight"><?= str_replace('_', ' ', $tenant['user_status']) ?></span>
         </div>
       </div>
-      <div class="h-8 w-px bg-gray-100"></div>
+      <div class="h-8 w-px bg-gray-100 status-divider"></div>
       <div class="flex-1">
         <div class="text-[0.6rem] font-black text-gray-400 uppercase tracking-widest mb-0.5">Verification</div>
-        <div class="flex items-center gap-1.5 text-success-600">
+        <div class="flex items-center gap-1.5 text-success-600 flex-wrap">
           <i class="fa-solid fa-circle-check text-[10px]"></i>
           <span class="text-xs font-black uppercase tracking-tight">Identity Provided</span>
         </div>
       </div>
-      <div class="h-8 w-px bg-gray-100"></div>
+      <div class="h-8 w-px bg-gray-100 status-divider"></div>
       <div class="flex-1">
         <div class="text-[0.6rem] font-black text-gray-400 uppercase tracking-widest mb-0.5">Profile Match</div>
         <div class="text-xs font-black text-gray-900 uppercase tracking-tight">
@@ -296,13 +310,19 @@ document.addEventListener('DOMContentLoaded', function() {
       <div class="p-6">
         <?php if (!empty($currentCompatibility)): ?>
           <?php $comp = $currentCompatibility; ?>
+          <?php
+            $scoreValue = (float)($comp['score'] ?? 0);
+            $statusOnly = in_array($comp['status'] ?? '', ['Empty Room', 'Incomplete Profile', 'Incomplete Data', 'Incomplete Roommate Data'], true);
+            $scoreLabel = $statusOnly ? 'Info' : round($scoreValue) . '%';
+          ?>
           <div class="flex items-center justify-between mb-6">
             <div class="w-20 h-20 rounded-full border-4 border-gray-50 flex items-center justify-center relative shadow-inner">
-              <svg class="absolute inset-0 w-full h-full -rotate-90">
+              <svg class="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 80 80">
                 <circle cx="40" cy="40" r="34" fill="none" stroke="currentColor" stroke-width="6" class="text-gray-100"></circle>
                 <circle cx="40" cy="40" r="34" fill="none" stroke="currentColor" stroke-width="6" 
                   stroke-dasharray="213.6" 
-                  stroke-dashoffset="<?= 213.6 - (213.6 * ($comp['score'] / 100)) ?>"
+                  stroke-dashoffset="<?= $statusOnly ? 213.6 : 213.6 - (213.6 * ($scoreValue / 100)) ?>"
+                  stroke-linecap="round"
                   class="<?= match($comp['color']) {
                     'green' => 'text-success-500',
                     'blue' => 'text-brand-500',
@@ -311,7 +331,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     default => 'text-gray-300'
                   } ?>"></circle>
               </svg>
-              <span class="text-lg font-black text-gray-900"><?= round($comp['score']) ?>%</span>
+              <span class="text-lg font-black text-gray-900"><?= $scoreLabel ?></span>
             </div>
             <div class="text-right">
               <div class="text-[0.65rem] font-black text-gray-400 uppercase tracking-widest mb-1">Status</div>
@@ -389,84 +409,89 @@ document.addEventListener('DOMContentLoaded', function() {
           <i class="fa-solid fa-star text-brand-600"></i> Recommended Rooms
         </h3>
       </div>
-      <div class="p-0 overflow-x-auto">
-        <?php if (empty($recommendations)): ?>
-          <div class="p-12 text-center text-gray-400 italic text-sm">
-            No shared rooms available for matching.
-          </div>
-        <?php else: ?>
-          <table class="w-full text-left border-collapse">
+      <?php if (empty($personalityAnswers)): ?>
+        <div class="p-12 text-center text-gray-400 text-sm">
+          Complete personality answers are required before room fit can be scored.
+        </div>
+      <?php elseif (empty($recommendations)): ?>
+        <div class="p-12 text-center text-gray-400 text-sm">
+          No shared rooms are currently available for this tenant.
+        </div>
+      <?php else: ?>
+        <div class="table-wrap">
+          <table class="bt-table">
             <thead>
-              <tr class="bg-gray-50 border-b border-gray-100">
-                <th class="px-6 py-4 text-[0.65rem] font-black text-gray-400 uppercase tracking-widest">Room</th>
-                <th class="px-6 py-4 text-[0.65rem] font-black text-gray-400 uppercase tracking-widest">Compatibility</th>
-                <th class="px-6 py-4 text-[0.65rem] font-black text-gray-400 uppercase tracking-widest">Why?</th>
-                <th class="px-6 py-4 text-[0.65rem] font-black text-gray-400 uppercase tracking-widest text-right">Action</th>
+              <tr>
+                <th>Room</th>
+                <th>Occupancy</th>
+                <th>Fit</th>
+                <th>Room Details</th>
+                <th>Reasons</th>
+                <th data-col="actions">Action</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-100">
+            <tbody>
               <?php foreach ($recommendations as $rec): ?>
-                <tr class="hover:bg-gray-50/50 transition-colors">
-                  <td class="px-6 py-4">
-                    <div class="flex items-center gap-3">
-                      <div class="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center font-black text-gray-900 shadow-xs">
+                <?php
+                  $score = (float)($rec['compatibility_score'] ?? 0);
+                  $isEmptyRoom = ($rec['status'] ?? '') === 'Empty Room';
+                  $statusOnly = in_array($rec['status'] ?? '', ['Empty Room', 'Incomplete Profile', 'Incomplete Data', 'Incomplete Roommate Data'], true);
+                  $scoreText = $statusOnly ? ($isEmptyRoom ? 'Open room' : 'Pending data') : round($score) . '%';
+                  $spots = max(0, (int)($rec['max_occupants'] ?? 0) - (int)($rec['current_occupants'] ?? 0));
+                ?>
+                <tr>
+                  <td data-label="Room">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                      <div style="width:36px;height:36px;border-radius:var(--radius);background:var(--gray-100);border:1px solid var(--gray-200);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--gray-900);">
                         <?= htmlspecialchars($rec['room_number']) ?>
                       </div>
                       <div>
-                        <div class="text-xs font-bold text-gray-900"><?= $rec['current_occupants'] ?> occupants</div>
-                        <div class="text-[0.65rem] text-gray-400 font-medium">Shared Room</div>
+                        <div class="td-name">Room <?= htmlspecialchars($rec['room_number']) ?></div>
+                        <div class="td-sub"><?= ucfirst(htmlspecialchars($rec['room_type'] ?? 'shared')) ?></div>
                       </div>
                     </div>
                   </td>
-                  <td class="px-6 py-4">
-                    <div class="flex items-center gap-2 mb-1">
-                      <span class="text-sm font-black text-gray-900"><?= round($rec['compatibility_score']) ?>%</span>
-                      <span class="px-2 py-0.5 rounded-full text-[0.6rem] font-black uppercase tracking-tighter 
-                        <?= match($rec['color']) {
-                          'green' => 'bg-success-50 text-success-600 border border-success-200',
-                          'blue' => 'bg-brand-50 text-brand-600 border border-brand-200',
-                          'orange' => 'bg-warning-50 text-warning-600 border border-warning-200',
-                          'red' => 'bg-danger-50 text-danger-600 border border-danger-200',
-                          default => 'bg-gray-50 text-gray-600 border border-gray-200'
-                        } ?>"><?= $rec['status'] ?></span>
-                    </div>
-                    <div class="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div class="h-full <?= match($rec['color']) {
-                        'green' => 'bg-success-500',
-                        'blue' => 'bg-brand-500',
-                        'orange' => 'bg-warning-500',
-                        'red' => 'bg-danger-500',
-                        default => 'bg-gray-300'
-                      } ?>" style="width: <?= $rec['compatibility_score'] ?>%"></div>
+                  <td data-label="Occupancy">
+                    <?= (int)($rec['current_occupants'] ?? 0) ?> / <?= (int)($rec['max_occupants'] ?? 0) ?> occupied
+                    <div class="td-sub"><?= $spots ?> spot<?= $spots === 1 ? '' : 's' ?> open</div>
+                  </td>
+                  <td data-label="Fit" data-col="status">
+                    <div class="flex-center">
+                      <span class="badge <?= match($rec['color'] ?? 'gray') {
+                        'green' => 'badge-paid',
+                        'blue' => 'badge-waiting',
+                        'orange' => 'badge-pending',
+                        'red' => 'badge-rejected',
+                        default => 'badge-normal'
+                      } ?>">
+                        <?= htmlspecialchars($rec['status'] ?? 'Unknown') ?>
+                      </span>
+                      <span class="td-sub"><?= $scoreText ?></span>
                     </div>
                   </td>
-                  <td class="px-6 py-4">
-                    <div class="space-y-1">
-                      <?php foreach (array_slice($rec['reasons'], 0, 2) as $reason): ?>
-                        <div class="text-[0.65rem] font-bold text-gray-600 flex items-center gap-1">
-                          <i class="fa-solid fa-circle-check text-success-500 text-[10px]"></i>
-                          <?= htmlspecialchars($reason) ?>
-                        </div>
-                      <?php endforeach; ?>
-                    </div>
+                  <td data-label="Room Details">
+                    <?= ($rec['allowed_gender'] ?? 'any') === 'any' ? 'Any gender' : ucfirst(htmlspecialchars($rec['allowed_gender'])) . ' only' ?>
+                    <div class="td-sub"><?= !empty($rec['air_conditioned']) ? 'A/C' : 'No A/C' ?> - PHP <?= number_format((float)($rec['monthly_rent'] ?? 0), 2) ?></div>
                   </td>
-                  <td class="px-6 py-4 text-right">
-                    <?php if ($rec['compatibility_score'] >= 50): ?>
-                      <button type="button" class="btn btn-sm btn-primary shadow-xs font-bold" onclick="setRoomAndShowModal(<?= $rec['room_id'] ?>)">
-                        Assign
-                      </button>
-                    <?php else: ?>
-                      <button type="button" class="btn btn-sm btn-outline-danger shadow-xs font-bold" onclick="setRoomAndShowModal(<?= $rec['room_id'] ?>)">
-                        Assign Anyway
-                      </button>
-                    <?php endif; ?>
+                  <td data-label="Reasons">
+                    <?php foreach (array_slice($rec['reasons'] ?? [], 0, 2) as $reason): ?>
+                      <div class="text-[0.7rem] font-bold text-gray-600 flex items-center gap-1">
+                        <i class="fa-solid fa-circle-check text-success-500 text-[10px]"></i>
+                        <?= htmlspecialchars($reason) ?>
+                      </div>
+                    <?php endforeach; ?>
+                  </td>
+                  <td data-label="Actions" data-col="actions">
+                    <button type="button" class="btn btn-sm <?= $score >= 50 || $isEmptyRoom ? 'btn-primary' : 'btn-warning' ?>" onclick="setRoomAndShowModal(<?= (int)$rec['room_id'] ?>)">
+                      <?= $score >= 50 || $isEmptyRoom ? 'Assign' : 'Assign Anyway' ?>
+                    </button>
                   </td>
                 </tr>
               <?php endforeach; ?>
             </tbody>
           </table>
-        <?php endif; ?>
-      </div>
+        </div>
+      <?php endif; ?>
     </div>
     <?php endif; ?>
   </div>
@@ -491,6 +516,7 @@ function setRoomAndShowModal(roomId) {
       <button class="modal-close" onclick="closeModal('approveModal')">&times;</button>
     </div>
     <form action="<?= Router::url('landlord/approve-tenant') ?>" method="POST">
+      <input type="hidden" name="csrf_token" value="<?= $this->csrf() ?>">
       <input type="hidden" name="tenant_id" value="<?= $tenant['id'] ?? '' ?>">
       <div class="modal-body">
         <p style="margin:0 0 16px;color:var(--color-text-secondary);">You are about to approve <strong><?= htmlspecialchars($tenant['name'] ?? '') ?></strong>.</p>
@@ -524,6 +550,7 @@ function setRoomAndShowModal(roomId) {
     <form action="<?= Router::url('landlord/reject-tenant') ?>" method="POST"
           data-confirm="Reject this tenant application? This cannot be undone."
           data-action="Reject tenant" data-color="#dc2626" data-confirm-text="Yes, reject">
+      <input type="hidden" name="csrf_token" value="<?= $this->csrf() ?>">
       <input type="hidden" name="tenant_id" value="<?= $tenant['id'] ?? '' ?>">
       <div class="modal-body">
         <div class="form-group" style="margin-bottom:0;">
@@ -547,6 +574,7 @@ function setRoomAndShowModal(roomId) {
       <button class="modal-close" onclick="closeModal('assignRoomModal')">&times;</button>
     </div>
     <form action="<?= Router::url('landlord/approve-tenant') ?>" method="POST">
+      <input type="hidden" name="csrf_token" value="<?= $this->csrf() ?>">
       <input type="hidden" name="tenant_id" value="<?= $tenant['id'] ?? '' ?>">
       <div class="modal-body">
         <p style="margin:0 0 16px;color:var(--color-text-secondary);">Assign a room to <strong><?= htmlspecialchars($tenant['name'] ?? '') ?></strong>.</p>
@@ -579,6 +607,7 @@ function setRoomAndShowModal(roomId) {
     <form action="<?= Router::url('landlord/move-out-tenant') ?>" method="POST"
           data-confirm="Mark this tenant as moved out and remove them from their room?"
           data-action="Confirm move out" data-color="#dc2626" data-confirm-text="Yes, move out">
+      <input type="hidden" name="csrf_token" value="<?= $this->csrf() ?>">
       <input type="hidden" name="tenant_id" value="<?= $tenant['id'] ?? '' ?>">
       <div class="modal-body">
         <p style="margin:0 0 16px;color:var(--color-text-secondary);">Are you sure you want to mark <strong><?= htmlspecialchars($tenant['name'] ?? '') ?></strong> as moved out? This will remove them from Room <?= htmlspecialchars($tenant['room_number'] ?? '') ?>.</p>
@@ -624,6 +653,19 @@ function previewCompatibility(roomId, containerId) {
         return;
       }
 
+      const statusOnly = ['Empty Room', 'Incomplete Profile', 'Incomplete Data', 'Incomplete Roommate Data'].includes(data.status);
+      const scoreLabel = statusOnly ? (data.status === 'Empty Room' ? 'Open room' : 'Pending data') : Math.round(data.score) + '%';
+      const meterHtml = statusOnly ? `
+        <div class="text-[0.7rem] font-bold text-gray-500">${scoreLabel}</div>
+      ` : `
+        <div class="flex items-center gap-3">
+          <div class="text-xl font-black text-gray-900">${scoreLabel}</div>
+          <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div class="h-full bg-${data.color === 'blue' ? 'brand' : (data.color === 'green' ? 'success' : (data.color === 'orange' ? 'warning' : 'danger'))}-500" style="width: ${data.score}%"></div>
+          </div>
+        </div>
+      `;
+
       let reasonsHtml = '';
       if (data.explanation && data.explanation.length > 0) {
         reasonsHtml = `
@@ -647,14 +689,9 @@ function previewCompatibility(roomId, containerId) {
             <div class="text-[0.65rem] font-bold text-gray-400 uppercase tracking-widest">Compatibility Preview</div>
             <span class="comp-badge comp-badge-${data.color}">${data.status}</span>
           </div>
-          <div class="flex items-center gap-3">
-            <div class="text-xl font-black text-gray-900">${Math.round(data.score)}%</div>
-            <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div class="h-full bg-${data.color === 'blue' ? 'brand' : (data.color === 'green' ? 'success' : (data.color === 'orange' ? 'warning' : 'danger'))}-500" style="width: ${data.score}%"></div>
-            </div>
-          </div>
+          ${meterHtml}
           ${reasonsHtml}
-          ${data.score < 50 ? `
+          ${!statusOnly && data.score < 50 ? `
             <div class="mt-3 p-2 bg-danger-50 border border-danger-100 rounded text-[0.65rem] text-danger-600 font-bold flex items-start gap-2">
               <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
               <span>Low compatibility detected. This match may increase roommate conflict.</span>
@@ -689,4 +726,46 @@ document.addEventListener('click', function(e) {
 .id-preview-box:hover { opacity: 0.8; }
 .grid-col-8 { grid-column: span 8; }
 .grid-col-4 { grid-column: span 4; }
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  /* Application Status Card - Stack vertically on mobile */
+  .app-status-card {
+    flex-direction: column !important;
+    gap: 16px !important;
+    padding: 16px !important;
+  }
+  
+  .app-status-card > div {
+    width: 100% !important;
+  }
+  
+  /* Hide vertical dividers on mobile */
+  .app-status-card .status-divider {
+    display: none !important;
+  }
+  
+  /* Ensure text doesn't break awkwardly */
+  .app-status-card .flex-1 {
+    min-width: 0;
+  }
+  
+  .app-status-card span {
+    white-space: nowrap;
+  }
+  
+  /* Verification Documents - Make image responsive */
+  .card img {
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: 300px !important;
+    object-fit: contain !important;
+  }
+  
+  /* Ensure verification document container is responsive */
+  .card .group.relative {
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+}
 </style>

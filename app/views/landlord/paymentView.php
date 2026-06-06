@@ -13,9 +13,9 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   var backButton = document.getElementById('backButton');
-  if (backButton && sessionStorage.getItem('fromNotifications') === 'true') {
-    backButton.href = '<?= Router::url('landlord/notifications') ?>';
-    sessionStorage.removeItem('fromNotifications');
+  // Check URL referrer instead of sessionStorage to avoid tracking prevention issues
+  if (backButton && document.referrer && document.referrer.includes('notifications')) {
+    backButton.href = <?= json_encode(Router::url('landlord/notifications')) ?>;
   }
 });
 </script>
@@ -55,9 +55,46 @@ document.addEventListener('DOMContentLoaded', function() {
         
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-[0.6rem] font-black text-gray-400 uppercase tracking-widest mb-1">Amount Paid</label>
+            <label class="block text-[0.6rem] font-black text-gray-400 uppercase tracking-widest mb-1">Bill Total</label>
+            <div class="text-base font-black text-gray-900">₱<?= number_format($payment['bill_amount'], 2) ?></div>
+          </div>
+          <div>
+            <label class="block text-[0.6rem] font-black text-gray-400 uppercase tracking-widest mb-1">This Payment</label>
             <div class="text-lg font-black text-brand-600">₱<?= number_format($payment['amount_paid'], 2) ?></div>
           </div>
+        </div>
+
+        <?php
+        // Calculate remaining balance
+        $bill = $bill ?? null;
+        if (!$bill) {
+          $billModel = new Bill();
+          $bill = $billModel->find($payment['bill_id']);
+        }
+        $billTotal = (float)($bill['amount'] ?? $payment['bill_amount'] ?? 0);
+        $alreadyPaid = (float)($bill['amount_paid'] ?? 0);
+        $thisPayment = (float)($payment['amount_paid'] ?? 0);
+        $remainingAfterApproval = max(0, $billTotal - ($alreadyPaid + $thisPayment));
+        ?>
+
+        <?php if ($payment['status'] === 'pending'): ?>
+        <div class="pt-3 border-t border-gray-100">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-[0.6rem] font-black text-gray-400 uppercase tracking-widest mb-1">Already Paid</label>
+              <div class="text-sm font-bold text-success-600">₱<?= number_format($alreadyPaid, 2) ?></div>
+            </div>
+            <div>
+              <label class="block text-[0.6rem] font-black text-gray-400 uppercase tracking-widest mb-1">After Approval</label>
+              <div class="text-sm font-bold <?= $remainingAfterApproval > 0 ? 'text-warning-600' : 'text-success-600' ?>">
+                <?= $remainingAfterApproval > 0 ? '₱' . number_format($remainingAfterApproval, 2) . ' remaining' : 'Fully Paid' ?>
+              </div>
+            </div>
+          </div>
+        </div>
+        <?php endif; ?>
+
+        <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="block text-[0.6rem] font-black text-gray-400 uppercase tracking-widest mb-1">Method</label>
             <div class="text-sm font-bold text-gray-900"><?= match($payment['payment_method'] ?? '') {
@@ -67,11 +104,10 @@ document.addEventListener('DOMContentLoaded', function() {
               default => ucfirst(str_replace('_', ' ', $payment['payment_method'] ?? 'other')),
             } ?></div>
           </div>
-        </div>
-
-        <div>
-          <label class="block text-[0.6rem] font-black text-gray-400 uppercase tracking-widest mb-1">Date Submitted</label>
-          <div class="text-[0.8rem] font-bold text-gray-700"><?= date('M j, Y | g:i a', strtotime($payment['payment_date'])) ?></div>
+          <div>
+            <label class="block text-[0.6rem] font-black text-gray-400 uppercase tracking-widest mb-1">Date Submitted</label>
+            <div class="text-[0.8rem] font-bold text-gray-700"><?= date('M j, Y', strtotime($payment['payment_date'])) ?></div>
+          </div>
         </div>
 
         <?php if ($payment['notes']): ?>
@@ -80,6 +116,13 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="text-[0.75rem] text-gray-500 leading-relaxed italic">
               "<?= nl2br(htmlspecialchars($payment['notes'])) ?>"
             </div>
+          </div>
+        <?php endif; ?>
+
+        <?php if (!empty($payment['landlord_note'])): ?>
+          <div class="p-3 bg-brand-50 rounded-lg border border-brand-100">
+            <label class="block text-[0.6rem] font-black text-brand-400 uppercase tracking-widest mb-1">Landlord Note</label>
+            <div class="text-brand-900 text-[0.75rem] font-bold"><?= nl2br(htmlspecialchars($payment['landlord_note'])) ?></div>
           </div>
         <?php endif; ?>
 
@@ -112,7 +155,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     <?php if ($payment['status'] === 'pending'): ?>
       <div class="space-y-2">
-        <button type="button" class="btn btn-success w-full py-3 flex items-center justify-center gap-2 text-sm font-black shadow-sm uppercase tracking-widest" onclick="showApprovePaymentModal(<?= (int) $payment['id'] ?>, <?= json_encode($payment['tenant_name']) ?>, <?= (float) $payment['amount_paid'] ?>)">
+        <button type="button" class="btn btn-success w-full py-3 flex items-center justify-center gap-2 text-sm font-black shadow-sm uppercase tracking-widest" onclick="console.log('Button clicked'); if(typeof showApprovePaymentModal === 'function') { showApprovePaymentModal(<?= (int) $payment['id'] ?>, <?= htmlspecialchars(json_encode($payment['tenant_name']), ENT_QUOTES) ?>, <?= (float) $payment['amount_paid'] ?>); } else { alert('Modal function not found!'); }">
           <i class="fa-solid fa-check-circle"></i> Approve
         </button>
         <button type="button" class="btn btn-danger w-full py-3 flex items-center justify-center gap-2 text-sm font-black shadow-sm uppercase tracking-widest" onclick="showRejectPaymentModal(<?= $payment['id'] ?>)">

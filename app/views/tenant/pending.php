@@ -12,7 +12,9 @@ $status = $user['status'] ?? 'pending';
 $currentStep = 1;
 $isEmailVerified = !empty($user['email_verified_at']) || $status !== 'unverified'; // If they reach here, email is usually verified
 $isIdUploaded = !empty($tenant['id_document_path']);
-$isQuizDone = !empty($tenant['personality_completed']);
+$activeQuestions = (int)($tenant['active_questions'] ?? 0);
+$answeredQuestions = (int)($tenant['answered_questions'] ?? 0);
+$isQuizDone = !empty($tenant['personality_completed']) && $activeQuestions > 0 && $answeredQuestions >= $activeQuestions;
 $isApproved = ($status === 'approved');
 $isRoomAssigned = !empty($tenant['room_id']);
 
@@ -202,4 +204,3 @@ $steps = [
   </div>
 
 </div>
-

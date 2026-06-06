@@ -83,6 +83,19 @@ class Notification extends Model
     }
 
     /**
+     * Get count of unread notifications for a user.
+     * Returns integer count (0 if none).
+     */
+    public function getUnreadCount(int $userId): int
+    {
+        $stmt = $this->db->prepare(
+            "SELECT COUNT(*) FROM {$this->table} WHERE user_id = :uid AND is_read = 0"
+        );
+        $stmt->execute([':uid' => $userId]);
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
      * Mark a single notification as read.
      * Ownership enforced: WHERE id = :id AND user_id = :uid.
      */

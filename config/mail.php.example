@@ -10,18 +10,18 @@
 // Set to false to disable all outgoing emails
 define('MAIL_ENABLED',   true);
 
-// SMTP Server (e.g., smtp.gmail.com, smtp.hostinger.com)
-define('MAIL_HOST',      'smtp.gmail.com');
+// SMTP Server (Hostinger default)
+define('MAIL_HOST',      'smtp.hostinger.com');
 
 // SMTP Port (465 for SSL/SMTPS, 587 for TLS/STARTTLS)
 define('MAIL_PORT',      465);
 
-// SMTP Username (your email address)
-define('MAIL_USERNAME',  'your-email@gmail.com');
+// SMTP Username (must be the same Hostinger mailbox used as the From address)
+define('MAIL_USERNAME',  'you@your-domain.com');
 
-// SMTP Password (use an App Password for Gmail)
-define('MAIL_PASSWORD',  'your-app-password-here');
+// SMTP Password for that mailbox
+define('MAIL_PASSWORD',  'your-mailbox-password');
 
 // From address and name
-define('MAIL_FROM',      'your-email@gmail.com');
+define('MAIL_FROM',      MAIL_USERNAME);
 define('MAIL_FROM_NAME', APP_NAME);

@@ -55,9 +55,9 @@ foreach ($alerts as $f):
       Upload your GCash receive-money QR. Tenants who choose <strong>GCash</strong> will see this code when paying bills so they can scan and transfer, then upload their receipt for your review.
     </p>
 
-    <?php if (!empty($landlord['gcash_qr'])): ?>
+    <?php if ($gcashQrUrl): ?>
       <div style="text-align: center; margin-bottom: 16px;">
-        <img src="<?= Router::upload('gcash_qr', $landlord['gcash_qr']) ?>" alt="GCash QR Code" style="max-width: 200px; display: inline-block; border: 1px solid var(--color-border); border-radius: var(--radius);">
+        <img src="<?= $gcashQrUrl ?>" alt="GCash QR Code" style="max-width: 200px; display: inline-block; border: 1px solid var(--color-border); border-radius: var(--radius);">
       </div>
     <?php else: ?>
       <div style="text-align: center; padding: 24px; background: var(--color-canvas); border-radius: var(--radius); border: 1px dashed var(--color-border); margin-bottom: 16px;">
@@ -95,14 +95,14 @@ foreach ($alerts as $f):
     <h3><i class="fa-solid fa-key"></i> Password</h3>
   </div>
   <div class="card-body">
-    <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0;">
-      <div>
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 4px 0; gap: 12px;">
+      <div style="flex: 1; min-width: 200px;">
         <strong style="color: var(--color-text-primary);">Account Password</strong>
         <p style="font-size: 0.85rem; color: var(--color-text-secondary); margin: 4px 0 0;">
           Update your login password. Your current password is required.
         </p>
       </div>
-      <a href="<?= Router::url('auth/changePassword') ?>" class="btn btn-secondary btn-sm">
+      <a href="<?= Router::url('auth/changePassword') ?>" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">
         <i class="fa-solid fa-lock"></i> Change
       </a>
     </div>
@@ -115,8 +115,8 @@ foreach ($alerts as $f):
     <h3><i class="fa-solid fa-shield-halved"></i> Two-Factor Authentication</h3>
   </div>
   <div class="card-body">
-    <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0;">
-      <div>
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 4px 0; gap: 12px;">
+      <div style="flex: 1; min-width: 200px;">
         <strong style="color: var(--color-text-primary);">Security Layer</strong>
         <p style="font-size: 0.85rem; color: var(--color-text-secondary); margin: 4px 0 0;">
           <?php if (!empty($user['totp_enabled'])): ?>
@@ -132,7 +132,7 @@ foreach ($alerts as $f):
           <?php endif; ?>
         </p>
       </div>
-      <a href="<?= Router::url('auth/setup2FA') ?>" class="btn btn-secondary btn-sm">
+      <a href="<?= Router::url('auth/setup2FA') ?>" class="btn btn-secondary btn-sm" style="flex-shrink: 0;">
         <i class="fa-solid fa-gear"></i> Manage
       </a>
     </div>

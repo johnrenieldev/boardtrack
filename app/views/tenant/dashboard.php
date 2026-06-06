@@ -63,14 +63,14 @@ $name = htmlspecialchars(explode(' ', $user['name'] ?? 'Tenant')[0]);
     </div>
   </a>
   
-  <a href="<?= Router::url('tenant/notifications') ?>" class="stat-card <?= !empty($notifications) ? 'urgent' : '' ?>">
+  <a href="<?= Router::url('tenant/notifications') ?>" class="stat-card <?= ($unreadNotificationCount ?? 0) > 0 ? 'urgent' : '' ?>">
     <div class="stat-header">
       <div class="stat-icon-box">
         <i class="fa-solid fa-bell"></i>
       </div>
       <div class="stat-label">Notifications</div>
     </div>
-    <div class="stat-value"><?= !empty($notifications) ? count($notifications) : 'NONE' ?></div>
+    <div class="stat-value"><?= ($unreadNotificationCount ?? 0) > 0 ? ($unreadNotificationCount ?? 0) : '0' ?></div>
     <div class="stat-footer">
       Stay <span>updated</span>
     </div>
@@ -216,7 +216,7 @@ $name = htmlspecialchars(explode(' ', $user['name'] ?? 'Tenant')[0]);
         <a href="<?= Router::url('tenant/announcements') ?>" class="btn btn-ghost btn-sm">View all</a>
       </div>
       <?php if (!empty($recentAnnouncements)): ?>
-        <div class="notif-list">
+        <div class="notif-list" style="max-height: 400px; overflow-y: auto;">
           <?php foreach ($recentAnnouncements as $a): ?>
             <div class="notif-item">
               <div class="notif-icon announcement">

@@ -12,14 +12,20 @@ class Router
     {
         $base = rtrim(BASE_URL, '/');
         $path = ltrim($path, '/');
+        $query = '';
+
+        if (str_contains($path, '?')) {
+            [$path, $query] = explode('?', $path, 2);
+            $path = trim($path, '/');
+        }
 
         if (empty($path)) {
-            return $base . '/';
+            return $query !== '' ? $base . '/index.php?' . $query : $base . '/';
         }
 
         // Build as query string format: index.php?url=controller/method
         // .htaccess rewrites clean URLs to this format internally
-        return $base . '/index.php?url=' . $path;
+        return $base . '/index.php?url=' . $path . ($query !== '' ? '&' . $query : '');
     }
 
     /**

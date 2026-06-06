@@ -78,4 +78,19 @@ class Testimonial extends Model
     {
         return $this->exists('user_id', $userId);
     }
+
+    /**
+     * Get all testimonials with tenant names for landlord review page
+     */
+    public function getAllWithTenantNames()
+    {
+        $sql = "
+            SELECT t.*, u.name as tenant_name, u.email
+            FROM {$this->table} t
+            JOIN users u ON t.user_id = u.id
+            ORDER BY t.is_approved ASC, t.created_at DESC
+        ";
+        
+        return $this->rawQuery($sql);
+    }
 }

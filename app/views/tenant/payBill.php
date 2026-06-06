@@ -35,6 +35,8 @@ $landlordGcash = $landlordGcash ?? ['has_qr' => false, 'qr_url' => null, 'landlo
   <form action="<?= Router::url('tenant/submit-payment') ?>" method="POST" enctype="multipart/form-data" class="confirm-form"
         data-action="Submit payment" data-message="Submit this payment receipt to your landlord for verification?"
         style="padding: 24px;">
+    <input type="hidden" name="csrf_token" value="<?= $this->csrf() ?>">
+    <input type="hidden" name="bill_id" value="<?= (int) ($bill['id'] ?? 0) ?>">
     <?php
     $billId = (int) ($bill['id'] ?? 0);
     require APP_PATH . '/views/tenant/partials/payment_fields.php';

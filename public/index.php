@@ -5,13 +5,29 @@
  * Initializes configuration, session security, core dependencies, and routing.
  */
 
-// Force error reporting for Hostinger debugging
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-
 // Load application configuration and constants first.
 require_once dirname(__DIR__) . '/config/config.php';
+
+set_exception_handler(static function (Throwable $e): void {
+    error_log('[BoardTrack Uncaught] ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    http_response_code(500);
+
+    if (defined('APP_ENV') && APP_ENV === 'development') {
+        echo '<pre>' . htmlspecialchars((string) $e, ENT_QUOTES, 'UTF-8') . '</pre>';
+        return;
+    }
+
+    echo '<!DOCTYPE html><html><head><title>Server Error</title></head><body style="font-family:sans-serif;text-align:center;padding:80px;background:#f9fafb;color:#111827"><h1>Something went wrong</h1><p>Please try again later.</p></body></html>';
+});
+
+register_shutdown_function(static function (): void {
+    $error = error_get_last();
+    if (!$error || !in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        return;
+    }
+
+    error_log('[BoardTrack Fatal] ' . $error['message'] . ' in ' . $error['file'] . ':' . $error['line']);
+});
 // Configure session policy before calling session_start().
 session_name(SESSION_NAME);
 

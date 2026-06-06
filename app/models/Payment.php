@@ -46,7 +46,7 @@ class Payment extends Model
                        u.name AS tenant_name, t.id AS tenant_id, b.bill_name,
                        b.amount AS bill_amount, r.room_number,
                        p.notes, p.review_notes AS rejection_reason,
-                       p.payment_method
+                       p.landlord_note, p.payment_method
                 FROM {$this->table} p
                 JOIN tenants t ON p.tenant_id = t.id
                 JOIN users   u ON t.user_id   = u.id

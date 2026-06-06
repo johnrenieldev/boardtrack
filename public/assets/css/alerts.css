@@ -1,0 +1,410 @@
+/**
+ * BoardTrack Modern Alert System CSS
+ * Formal, professional UI/UX for notifications and dialogs
+ */
+
+/* ═══════════════════════════════════════════════════════════════
+   TOAST NOTIFICATIONS
+═══════════════════════════════════════════════════════════════ */
+
+.bt-alert-container {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 420px;
+  width: calc(100% - 40px);
+  pointer-events: none;
+}
+
+.bt-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+  border-left: 4px solid;
+  opacity: 0;
+  transform: translateX(100%);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: auto;
+  position: relative;
+  overflow: hidden;
+}
+
+.bt-alert.show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.bt-alert.hide {
+  opacity: 0;
+  transform: translateX(100%);
+}
+
+.bt-alert::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: currentColor;
+}
+
+.bt-alert-icon {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+}
+
+.bt-alert-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.bt-alert-message {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #374151;
+  font-weight: 500;
+}
+
+.bt-alert-close {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  border-radius: 6px;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.bt-alert-close:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #4b5563;
+}
+
+/* Alert Types */
+.bt-alert-success {
+  border-left-color: #10b981;
+}
+
+.bt-alert-success .bt-alert-icon {
+  color: #10b981;
+}
+
+.bt-alert-error {
+  border-left-color: #ef4444;
+}
+
+.bt-alert-error .bt-alert-icon {
+  color: #ef4444;
+}
+
+.bt-alert-warning {
+  border-left-color: #f59e0b;
+}
+
+.bt-alert-warning .bt-alert-icon {
+  color: #f59e0b;
+}
+
+.bt-alert-info {
+  border-left-color: #3b82f6;
+}
+
+.bt-alert-info .bt-alert-icon {
+  color: #3b82f6;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MODAL DIALOGS
+═══════════════════════════════════════════════════════════════ */
+
+.bt-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.bt-modal-overlay.show {
+  opacity: 1;
+}
+
+.bt-modal-overlay.show .bt-modal {
+  transform: scale(1);
+  opacity: 1;
+}
+
+.bt-modal-overlay.hide {
+  opacity: 0;
+}
+
+.bt-modal {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 24px rgba(0, 0, 0, 0.1);
+  max-width: 480px;
+  width: 100%;
+  transform: scale(0.95);
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.bt-modal-header {
+  padding: 24px 24px 20px;
+  text-align: center;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.bt-modal-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  font-size: 1.5rem;
+}
+
+.bt-modal-header-brand .bt-modal-icon {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.bt-modal-header-success .bt-modal-icon {
+  background: #ecfdf5;
+  color: #10b981;
+}
+
+.bt-modal-header-warning .bt-modal-icon {
+  background: #fffbeb;
+  color: #f59e0b;
+}
+
+.bt-modal-header-danger .bt-modal-icon {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+.bt-modal-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.bt-modal-body {
+  padding: 20px 24px;
+}
+
+.bt-modal-message {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #6b7280;
+  margin: 0;
+  text-align: center;
+}
+
+.bt-modal-footer {
+  padding: 20px 24px 24px;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BUTTONS
+═══════════════════════════════════════════════════════════════ */
+
+.bt-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 100px;
+  font-family: inherit;
+}
+
+.bt-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.bt-btn:active {
+  transform: translateY(0);
+}
+
+.bt-btn-brand {
+  background: #2563eb;
+  color: white;
+}
+
+.bt-btn-brand:hover {
+  background: #1d4ed8;
+}
+
+.bt-btn-success {
+  background: #10b981;
+  color: white;
+}
+
+.bt-btn-success:hover {
+  background: #059669;
+}
+
+.bt-btn-warning {
+  background: #f59e0b;
+  color: white;
+}
+
+.bt-btn-warning:hover {
+  background: #d97706;
+}
+
+.bt-btn-danger {
+  background: #ef4444;
+  color: white;
+}
+
+.bt-btn-danger:hover {
+  background: #dc2626;
+}
+
+.bt-btn-secondary {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.bt-btn-secondary:hover {
+  background: #e5e7eb;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE
+═══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 640px) {
+  .bt-alert-container {
+    top: 20px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-width: none;
+  }
+  
+  .bt-alert {
+    padding: 14px 16px;
+  }
+  
+  .bt-alert-message {
+    font-size: 0.85rem;
+  }
+  
+  .bt-modal {
+    max-width: calc(100% - 32px);
+    margin: 16px;
+  }
+  
+  .bt-modal-header {
+    padding: 20px 20px 16px;
+  }
+  
+  .bt-modal-icon {
+    width: 48px;
+    height: 48px;
+    font-size: 1.3rem;
+    margin-bottom: 12px;
+  }
+  
+  .bt-modal-title {
+    font-size: 1.1rem;
+  }
+  
+  .bt-modal-body {
+    padding: 16px 20px;
+  }
+  
+  .bt-modal-message {
+    font-size: 0.9rem;
+  }
+  
+  .bt-modal-footer {
+    padding: 16px 20px 20px;
+    flex-direction: column-reverse;
+  }
+  
+  .bt-btn {
+    width: 100%;
+    padding: 14px 20px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ANIMATIONS
+═══════════════════════════════════════════════════════════════ */
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
